@@ -16,6 +16,9 @@ pub(crate) struct TestCore {
 
 impl TestCore {
     pub(crate) fn start(version: &str) -> Self {
+        // 扩展已整体下线（kwikpaste_core::extensions::AVAILABLE = false），
+        // 但这里的测试验证的正是装/卸/换版机制，强制打开。
+        kwikpaste_core::extensions::FORCE_AVAILABLE.store(true, std::sync::atomic::Ordering::Relaxed);
         let temp = tempfile::tempdir().unwrap();
         let local = temp.path().join("local");
         let paths = CorePaths::new(AppEnv::Dev, local.clone(), local.join("logs"), None);

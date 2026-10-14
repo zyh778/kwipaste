@@ -94,7 +94,7 @@ fn initial_tab() -> TabId {
             Some("paste") => TabId::Paste,
             Some("items") => TabId::Items,
             Some("sync") => TabId::Sync,
-            Some("extensions") => TabId::Extensions,
+            Some("extensions") if kwikpaste_core::extensions::AVAILABLE => TabId::Extensions,
             Some("overview") => TabId::Overview,
             Some("data") => TabId::Data,
             Some("about") => TabId::About,

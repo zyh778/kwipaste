@@ -206,6 +206,7 @@ fn real_ocr_process_frames_timeout_and_graceful_stop() {
     assert!(child.lock().unwrap().try_wait().unwrap().is_some());
 }
 
+#[cfg(any(target_os = "windows", target_os = "macos"))]
 #[test]
 fn real_ocr_install_disable_reinstall_and_uninstall_take_effect_without_restart() {
     use crate::clipboard::{ClipboardPayload, ImagePayload};
@@ -290,5 +291,46 @@ fn real_ocr_install_disable_reinstall_and_uninstall_take_effect_without_restart(
     assert!(!core.ocr_enabled());
     assert!(!core.paths().extensions_dir().join("ocr").exists());
     assert!(block_on(core.image_text(&item.id)).unwrap().is_some());
+    block_on(core.shutdown()).unwrap();
+}
+
+/// Linux 的 helper 必须通过真实子进程报告 Unsupported，并可正常启停、卸载。
+#[cfg(target_os = "linux")]
+#[test]
+fn linux_ocr_reports_unsupported_without_breaking_extension_lifecycle() {
+    let fixture = Fixture::new();
+    let core = fixture.start();
+    assert_eq!(
+        block_on(core.ocr_support()).unwrap(),
+        crate::OcrSupport::NotInstalled
+    );
+    let staged = fixture.root().join("ocr-staged");
+    fs::copy(ocr_binary(), &staged).unwrap();
+    block_on(core.install_extension("ocr", "1.0.0", OCR_PROTOCOL, &staged)).unwrap();
+    assert_eq!(
+        block_on(core.ocr_support()).unwrap(),
+        crate::OcrSupport::Unsupported
+    );
+    block_on(core.set_extension_enabled("ocr", false)).unwrap();
+    assert!(!core.ocr_enabled());
+    block_on(core.set_extension_enabled("ocr", true)).unwrap();
+    assert_eq!(
+        block_on(core.ocr_support()).unwrap(),
+        crate::OcrSupport::Unsupported
+    );
+    // 即便引擎不支持识别，重装也必须回收已启动的 helper。
+    let host = process::ProcessHost::<
+        kwikpaste_ext_protocol::Request,
+        kwikpaste_ext_protocol::Response,
+    >::start("ocr", &core.resolve_extension("ocr").unwrap())
+    .unwrap();
+    let child = host.child.clone();
+    core.0.ocr.track_child_for_test(child.clone());
+    fs::copy(ocr_binary(), &staged).unwrap();
+    block_on(core.install_extension("ocr", "1.1.0", OCR_PROTOCOL, &staged)).unwrap();
+    assert!(child.lock().unwrap().try_wait().unwrap().is_some());
+    drop(host);
+    block_on(core.uninstall_extension("ocr")).unwrap();
+    assert!(core.resolve_extension("ocr").is_none());
     block_on(core.shutdown()).unwrap();
 }
