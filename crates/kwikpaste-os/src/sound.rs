@@ -12,7 +12,7 @@ fn perceptual_gain(percent: u8) -> f32 {
 }
 
 /// 查找完整 RIFF/WAVE 的 PCM 数据，允许附加块及奇数长度块的填充字节。
-#[cfg(any(target_os = "windows", test))]
+#[cfg(any(target_os = "windows", target_os = "linux", test))]
 fn pcm_data_range(bytes: &[u8]) -> Result<std::ops::Range<usize>, &'static str> {
     fn u16_at(bytes: &[u8], offset: usize) -> Option<u16> {
         Some(u16::from_le_bytes(
@@ -90,7 +90,7 @@ fn pcm_data_range(bytes: &[u8]) -> Result<std::ops::Range<usize>, &'static str> 
 }
 
 /// 只缩放 PCM 样本，保留所有头和其它块；满音量直接借用原始字节，不分配副本。
-#[cfg(any(target_os = "windows", test))]
+#[cfg(any(target_os = "windows", target_os = "linux", test))]
 fn scale_pcm_wav(bytes: &[u8], percent: u8) -> Result<std::borrow::Cow<'_, [u8]>, &'static str> {
     let data = pcm_data_range(bytes)?;
     if percent >= 100 {
@@ -198,6 +198,40 @@ mod mac {
             Ok(())
         })
     }
+}
+
+/// 将提示音交给桌面音频工具；独立临时文件避免并发播放互相覆盖。
+#[cfg(target_os = "linux")]
+pub fn play_copy(volume_percent: u8) {
+    if volume_percent == 0 {
+        return;
+    }
+    let _ = std::thread::Builder::new()
+        .name("copy-sound".into())
+        .spawn(move || {
+            use std::io::Write;
+            let Ok(bytes) = scale_pcm_wav(COPY_SOUND, volume_percent) else {
+                return;
+            };
+            let Ok(mut file) = tempfile::Builder::new().suffix(".wav").tempfile() else {
+                return;
+            };
+            if file.write_all(&bytes).is_err() {
+                return;
+            }
+            for player in ["paplay", "aplay"] {
+                if std::process::Command::new(player)
+                    .arg(file.path())
+                    .stdout(std::process::Stdio::null())
+                    .stderr(std::process::Stdio::null())
+                    .status()
+                    .is_ok_and(|status| status.success())
+                {
+                    return;
+                }
+            }
+            log::debug!("copy sound requires paplay or aplay on Linux");
+        });
 }
 
 #[cfg(test)]

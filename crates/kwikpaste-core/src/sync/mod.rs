@@ -161,9 +161,13 @@ pub(crate) fn current_platform() -> Platform {
     {
         Platform::Macos
     }
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(target_os = "windows")]
     {
         Platform::Windows
+    }
+    #[cfg(target_os = "linux")]
+    {
+        Platform::Linux
     }
 }
 
@@ -182,13 +186,22 @@ pub(crate) fn default_device_name() -> String {
     NAME.get_or_init(system_device_name).clone()
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(target_os = "windows")]
 fn system_device_name() -> String {
     std::env::var("COMPUTERNAME")
         .ok()
         .map(|name| name.trim().to_owned())
         .filter(|name| !name.is_empty())
         .unwrap_or_else(|| "Windows".to_owned())
+}
+
+#[cfg(target_os = "linux")]
+fn system_device_name() -> String {
+    std::fs::read_to_string("/etc/hostname")
+        .ok()
+        .map(|name| name.trim().to_owned())
+        .filter(|name| !name.is_empty())
+        .unwrap_or_else(|| "Linux".to_owned())
 }
 
 #[cfg(target_os = "macos")]

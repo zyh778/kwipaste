@@ -52,6 +52,8 @@ After that, KwikPaste keeps itself up to date. Every update package is signature
 
 **Upgrading from 1.x**: 1.x does not update to 2.0 on its own. Download 2.0 and install it over 1.x; your records, groups, settings and images carry over. After the upgrade 1.x can no longer open the same data, so if you may want to go back, choose Export Backup in 1.x first.
 
+Linux native 2.0 can be built locally as an AppImage. See the [Linux build guide](LINUX.md) for commands and platform limitations. Local Linux packages do not use the automatic update channel above.
+
 ## Usage
 
 | Shortcut | Action |

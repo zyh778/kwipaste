@@ -33,10 +33,14 @@ pub enum TriggerSource {
     SecondInstance,
     OutsideClick,
     #[cfg_attr(
-        target_os = "macos",
+        not(target_os = "windows"),
         expect(dead_code, reason = "Win+V 只在 Windows 上")
     )]
     WinV,
+    #[cfg_attr(
+        target_os = "linux",
+        expect(dead_code, reason = "Linux 尚未接全局鼠标钩子")
+    )]
     MouseButton,
     Ui,
     /// 粘贴前让出前台。
@@ -91,8 +95,8 @@ pub enum PanelCommand {
     EndEditing,
     /// 系统「文本大小」变了，面板的最小、默认尺寸跟着补偿。
     #[cfg_attr(
-        target_os = "macos",
-        expect(dead_code, reason = "macOS 没有单独的文本大小设置")
+        not(target_os = "windows"),
+        expect(dead_code, reason = "此平台不订阅独立的文本缩放设置")
     )]
     SetTextScale(f64),
     /// 应用当前窗口材质；macOS 需要由持有原生面板的命令循环更新 NSVisualEffectView。
@@ -108,6 +112,10 @@ pub enum PanelCommand {
     /// 非激活窗口上的鼠标按下重新捕获或释放导航键。
     SetInputCapture(bool),
     /// 原生层截获了面板拖动区/缩放边的按下，GPUI 没有机会让弹出菜单自行收起。
+    #[cfg_attr(
+        target_os = "linux",
+        expect(dead_code, reason = "Linux 通过 GPUI 管理弹出菜单")
+    )]
     DismissPopup,
 }
 
@@ -141,14 +149,89 @@ pub struct PanelRoot {
 }
 
 impl Render for PanelRoot {
-    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
         frame_rendered();
 
-        div()
+        let root = div()
             .track_focus(&self.focus)
             .size_full()
+            .relative()
             .child(self.content.clone())
+            .children(resize_edges(window));
+        // X11：面板失焦后点回面板不会自动拿回输入焦点（override-redirect 窗口没有
+        // 窗口管理器代劳），之后点外部也就收不到 FocusOut、面板不再自动隐藏。
+        // 每次面板内按下时把焦点补回来，失焦隐藏的链条就不断了。
+        #[cfg(target_os = "linux")]
+        let root = root.on_mouse_down(gpui::MouseButton::Left, |_, window, _| {
+            let Some(xid) = super::native::window_xid(window) else {
+                return;
+            };
+            if kwikpaste_os::linux::x11::focused_window() != Some(xid) {
+                let _ = kwikpaste_os::linux::x11::focus(xid);
+            }
+        });
+        root
     }
+}
+
+/// 面板四边与四角的缩放热区（仅 Linux）：override-redirect 窗口没有窗口管理器给的
+/// 缩放边，自己在内容外圈叠一层窄条，按下时开轮询手势直接改窗口几何。
+#[cfg(target_os = "linux")]
+fn resize_edges(window: &mut Window) -> Vec<gpui::AnyElement> {
+    use gpui::{CursorStyle, MouseButton, Pixels};
+    use kwikpaste_os::linux::x11;
+
+    let Some(xid) = super::native::window_xid(window) else {
+        return Vec::new();
+    };
+    // 最小尺寸按当前缩放换算成物理像素，与 window_options 的 window_min_size 一致。
+    let scale = f64::from(window.scale_factor());
+    let min = ((PANEL_SIZE.0 * scale) as i32, (PANEL_SIZE.1 * scale) as i32);
+
+    const WIDTH: Pixels = px(5.);
+    const CORNER: Pixels = px(10.);
+    fn strip(
+        xid: u32,
+        edge: x11::ResizeEdge,
+        cursor: CursorStyle,
+        min: (i32, i32),
+        place: fn(gpui::Div) -> gpui::Div,
+    ) -> gpui::AnyElement {
+        place(div().absolute())
+            .cursor(cursor)
+            .on_mouse_down(MouseButton::Left, move |_, _, _| {
+                x11::begin_resize(xid, edge, min);
+            })
+            .into_any_element()
+    }
+
+    use gpui::Div;
+    vec![
+        strip(xid, x11::ResizeEdge::Left, CursorStyle::ResizeLeftRight, min, |d: Div| {
+            d.left_0().top_0().bottom_0().w(WIDTH)
+        }),
+        strip(xid, x11::ResizeEdge::Right, CursorStyle::ResizeLeftRight, min, |d: Div| {
+            d.right_0().top_0().bottom_0().w(WIDTH)
+        }),
+        strip(xid, x11::ResizeEdge::Top, CursorStyle::ResizeUpDown, min, |d: Div| {
+            d.top_0().left_0().right_0().h(WIDTH)
+        }),
+        strip(xid, x11::ResizeEdge::Bottom, CursorStyle::ResizeUpDown, min, |d: Div| {
+            d.bottom_0().left_0().right_0().h(WIDTH)
+        }),
+        strip(xid, x11::ResizeEdge::TopLeft, CursorStyle::ResizeUpLeftDownRight, min, |d: Div| {
+            d.top_0().left_0().w(CORNER).h(CORNER)
+        }),
+        strip(xid, x11::ResizeEdge::TopRight, CursorStyle::ResizeUpRightDownLeft, min, |d: Div| {
+            d.top_0().right_0().w(CORNER).h(CORNER)
+        }),
+        strip(xid, x11::ResizeEdge::BottomLeft, CursorStyle::ResizeUpRightDownLeft, min, |d: Div| {
+            d.bottom_0().left_0().w(CORNER).h(CORNER)
+        }),
+        strip(xid, x11::ResizeEdge::BottomRight, CursorStyle::ResizeUpLeftDownRight, min, |d: Div| {
+            d.bottom_0().right_0().w(CORNER).h(CORNER)
+        }),
+    ]
 }
 
 /// 面板的全局句柄。面板窗口打开之前就挂上（只是还没有窗口），UI 的视图构造时就能订阅事件、发命令。
@@ -181,7 +264,10 @@ impl Panel {
     }
 
     /// 面板窗口，钩子按键派发用；窗口打开之前为 `None`。
-    #[cfg_attr(target_os = "macos", expect(dead_code, reason = "macOS 不用键盘钩子"))]
+    #[cfg_attr(
+        not(target_os = "windows"),
+        expect(dead_code, reason = "此平台不用键盘钩子")
+    )]
     pub fn window(&self) -> Option<AnyWindowHandle> {
         self.window
     }
@@ -275,6 +361,27 @@ pub fn open<V: Render>(
     let native = native.context("the panel window was not built")??;
     let content = content.context("the panel window was not built")?;
     native.set_command_sender(commands.clone());
+    // X11 面板接收真实焦点，切换到其它应用时通过 GPUI 的 FocusOut 收起。
+    #[cfg(target_os = "linux")]
+    {
+        let commands = commands.clone();
+        let xid = native.raw_handle() as u32;
+        window.update(cx, |_, window, cx| {
+            root.update(cx, |_, cx| {
+                cx.observe_window_activation(window, move |_, window, _| {
+                    // XGrabKey 的临时抓取也产生 FocusOut；只有真实焦点已移走才隐藏。
+                    if !window.is_window_active()
+                        && kwikpaste_os::linux::x11::focused_window() != Some(xid)
+                    {
+                        let _ = commands.try_send(PanelCommand::Hide(Trigger::now(
+                            TriggerSource::OutsideClick,
+                        )));
+                    }
+                })
+                .detach();
+            });
+        })?;
+    }
 
     cx.global_mut::<Panel>().window = Some(window);
     let parts = Parts {

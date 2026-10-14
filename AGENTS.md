@@ -11,7 +11,7 @@ KwikPaste 是跨平台剪贴板管理器，采用 Rust-First 的 Tauri 架构。
 ## 快速原则
 
 - **Rust-First**：业务、系统能力、数据库与持久化优先放 Rust；前端只做展示与交互。
-- **仅支持 macOS + Windows**：不要新增 Linux 代码、依赖、构建产物或文档承诺。例外：根 `Cargo.lock` 里上游 crate 在 Linux/wasm cfg 下的传递依赖不算新增，是否真正引入以 `cargo tree --target <4 个发布目标>` 为准；`third_party/` 里不得新增 Linux 代码。
+- **平台范围：macOS + Windows 正式发布，Linux/X11 社区支持**：正式发布产物（NSIS/DMG/.app）仍只出 macOS + Windows；Linux 为社区/本地构建目标（X11 一等公民，Wayland 编译通过但全局热键、模拟粘贴降级），出 AppImage，不进官方发布流程与更新清单。根 `Cargo.lock` 里上游 crate 在各平台 cfg 下的传递依赖不算新增；`third_party/` 里不得新增平台专属代码。
 - **已发布版本按发布数据处理**：数据结构、配置格式、默认值和 migration 变更必须有明确迁移策略，不再直接覆盖已发布数据契约。
 - **主动演进当前项目**：实现新能力时以当前代码、产品需求和平台约束为准，把当前仓库作为唯一实现基线。
 - **尊重 dirty worktree**：不要回滚或覆盖非本轮改动；需要动到已修改文件时先读清楚。
@@ -105,7 +105,7 @@ cargo test
 - 改 schema 时同步检查所有 `SELECT`、`INSERT`、`UPDATE`、`bind`、测试结构体字面量；`query_as` 字段不匹配可能表现为 UI 空结果。
 - 表必须有 `created_at` / `updated_at`，类型 `TEXT NOT NULL`；剪贴板 `updated_at` 表示内容重新使用时间，收藏、置顶、备注等元数据更新不要刷新它。
 - `commands/` 保持薄层：参数校验 + 调用下层模块，不写业务逻辑。
-- 平台代码用 `#[cfg(target_os = "macos")]` / `#[cfg(target_os = "windows")]` 隔离；新增能力两端同步实现，或显式标注 TODO。
+- 平台代码用 `#[cfg(target_os = "macos")]` / `#[cfg(target_os = "windows")]` / `#[cfg(target_os = "linux")]` 隔离；新增能力 macOS + Windows 同步实现，Linux 允许显式降级（no-op/stub + 注释说明），未实现处标注 TODO。
 
 ## 前端约定
 

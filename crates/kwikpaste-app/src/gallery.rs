@@ -34,7 +34,7 @@ const DEMO_TOAST_DURATION: Duration = Duration::from_secs(60);
 /// 文本大小档位：1.x 测过的 100 / 125 / 150 / 225%。
 const TEXT_SCALES: [f32; 4] = [1., 1.25, 1.5, 2.25];
 
-#[cfg(target_os = "windows")]
+#[cfg(any(target_os = "windows", target_os = "linux"))]
 const MOD_KEY: &str = "Ctrl";
 #[cfg(target_os = "macos")]
 const MOD_KEY: &str = "⌘";

@@ -290,6 +290,19 @@ pub(super) fn apply_to_window(window: &mut Window, material: &WindowMaterial) {
     window.refresh();
 }
 
+/// Linux 暂无跨桌面统一的 Mica/Acrylic 材质，回退到不透明主题。
+#[cfg(target_os = "linux")]
+fn supported(material: Material) -> bool {
+    material == Material::Default
+}
+
+/// 保持 Root 与原生窗口都不透明，避免合成器背景透出。
+#[cfg(target_os = "linux")]
+pub(super) fn apply_to_window(window: &mut Window, _material: &WindowMaterial) {
+    window.set_background_appearance(WindowBackgroundAppearance::Opaque);
+    window.refresh();
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

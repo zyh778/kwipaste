@@ -45,3 +45,13 @@ pub fn mono_fallbacks() -> FontFallbacks {
 fn fallbacks(families: &[&str]) -> FontFallbacks {
     FontFallbacks::from_fonts(families.iter().map(|family| family.to_string()).collect())
 }
+
+/// Linux 使用常见系统字体，并显式覆盖中文和 Emoji。
+#[cfg(target_os = "linux")]
+pub const UI_FAMILY: &str = "Noto Sans";
+#[cfg(target_os = "linux")]
+pub const UI_FALLBACKS: &[&str] = &["Noto Sans CJK SC", "DejaVu Sans", "Noto Color Emoji"];
+#[cfg(target_os = "linux")]
+pub const MONO_FAMILY: &str = "DejaVu Sans Mono";
+#[cfg(target_os = "linux")]
+pub const MONO_FALLBACKS: &[&str] = &["Noto Sans CJK SC", "Noto Color Emoji"];

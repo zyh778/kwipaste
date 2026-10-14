@@ -25,6 +25,8 @@ const STATE_FILENAME: &str = "update-usage.json";
 const STATE_VERSION: u16 = 1;
 const SYSTEM: &str = if cfg!(target_os = "macos") {
     "macos"
+} else if cfg!(target_os = "linux") {
+    "linux"
 } else {
     "windows"
 };

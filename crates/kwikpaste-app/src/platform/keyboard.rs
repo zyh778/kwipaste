@@ -36,7 +36,7 @@ pub fn serve(cx: &mut App) {
     .detach();
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 pub fn serve(_cx: &mut App) {}
 
 #[cfg(target_os = "windows")]

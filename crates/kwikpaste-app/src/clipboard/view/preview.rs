@@ -1164,3 +1164,99 @@ pub mod native {
         }
     }
 }
+
+/// X11 预览窗不取焦点，避免按住空格预览时主面板失去键盘输入。
+#[cfg(target_os = "linux")]
+pub mod native {
+    use super::ScreenPlace;
+    use crate::clipboard::model::preview::RectF;
+    use anyhow::{anyhow, bail};
+    use gpui::{Bounds, Pixels, Window};
+    use kwikpaste_os::{
+        geometry::Rect,
+        linux::{monitor, x11},
+    };
+    use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+
+    pub struct NativePreview {
+        xid: u32,
+    }
+
+    /// 提取预览和来源窗口的 X11 ID。
+    fn xid(window: &Window) -> anyhow::Result<u32> {
+        let handle = HasWindowHandle::window_handle(window)
+            .map_err(|err| anyhow!("window handle: {err:?}"))?;
+        match handle.as_raw() {
+            RawWindowHandle::Xcb(handle) => Ok(handle.window.get()),
+            RawWindowHandle::Xlib(handle) => Ok(u32::try_from(handle.window)?),
+            _ => bail!("preview requires X11 or XWayland"),
+        }
+    }
+    impl NativePreview {
+        /// 预览窗口由 GPUI 持有，本结构只保存原生句柄。
+        pub fn attach(window: &Window) -> anyhow::Result<Self> {
+            Ok(Self { xid: xid(window)? })
+        }
+        /// 初始隐藏，首次预览时才映射。
+        pub fn install(&self) {
+            self.hide();
+        }
+        /// 使用物理像素定位并映射，不修改当前键盘焦点。
+        pub fn show(&self, rect: Rect, _dpi: u32) {
+            if let Err(err) = x11::place(self.xid, rect).and_then(|_| x11::show(self.xid, false)) {
+                log::warn!("preview window could not be shown: {err}");
+            }
+        }
+        /// 收起预览，错误仅写日志。
+        pub fn hide(&self) {
+            if let Err(err) = x11::hide(self.xid) {
+                log::debug!("preview hide failed: {err}");
+            }
+        }
+        /// 检查服务端真实可见状态。
+        pub fn is_visible(&self) -> bool {
+            x11::is_visible(self.xid)
+        }
+        /// 自测必须确认预览未抢夺输入焦点。
+        pub fn is_foreground(&self) -> bool {
+            x11::focused_window() == Some(self.xid)
+        }
+    }
+    /// 卡片逻辑坐标先转物理屏幕坐标，再转换到所在显示器坐标系。
+    pub fn screen_place(window: &Window, card: Bounds<Pixels>) -> Option<ScreenPlace> {
+        let origin = x11::geometry(xid(window).ok()?).ok()?;
+        let scale = f64::from(window.scale_factor());
+        let left = f64::from(origin.left) + f64::from(card.origin.x.as_f32()) * scale;
+        let top = f64::from(origin.top) + f64::from(card.origin.y.as_f32()) * scale;
+        let width = f64::from(card.size.width.as_f32()) * scale;
+        let height = f64::from(card.size.height.as_f32()) * scale;
+        let monitors = monitor::all();
+        let info = monitors
+            .iter()
+            .find(|info| {
+                left >= f64::from(info.monitor.left)
+                    && left < f64::from(info.monitor.right)
+                    && top >= f64::from(info.monitor.top)
+                    && top < f64::from(info.monitor.bottom)
+            })
+            .or(monitors.first())?;
+        let monitor_scale = info.scale();
+        Some(ScreenPlace {
+            card: RectF {
+                left: (left - f64::from(info.monitor.left)) / monitor_scale,
+                top: (top - f64::from(info.monitor.top)) / monitor_scale,
+                width: width / monitor_scale,
+                height: height / monitor_scale,
+            },
+            monitor: RectF {
+                left: 0.,
+                top: 0.,
+                width: f64::from(info.monitor.width()) / monitor_scale,
+                height: f64::from(info.monitor.height()) / monitor_scale,
+            },
+            origin: (info.monitor.left, info.monitor.top),
+            scale: monitor_scale,
+            dpi: info.dpi,
+        })
+    }
+}

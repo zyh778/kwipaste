@@ -157,29 +157,37 @@ mod tests {
         list.iter().map(|arg| (*arg).to_owned()).collect()
     }
 
+    /// 本机绝对路径与相对路径均保留原语义，测试不把 Windows 盘符当作 Unix 根目录。
     #[test]
     fn second_launches_map_to_the_1x_actions() {
+        let cwd = if cfg!(target_os = "windows") {
+            r"C:\work"
+        } else {
+            "/work"
+        };
+        let backup = if cfg!(target_os = "windows") {
+            r"D:\backup\history.KwikPasteBak"
+        } else {
+            "/backup/history.KwikPasteBak"
+        };
         assert_eq!(
-            request_for_invocation(&args(&[]), r"C:\"),
+            request_for_invocation(&args(&[]), cwd),
             Some(HostRequest::OpenPreferences {
                 source: RequestSource::SecondLaunch
             })
         );
+        assert_eq!(request_for_invocation(&args(&["--auto-launch"]), cwd), None);
         assert_eq!(
-            request_for_invocation(&args(&["--auto-launch"]), r"C:\"),
-            None
-        );
-        assert_eq!(
-            request_for_invocation(&args(&[r"D:\backup\history.KwikPasteBak"]), r"C:\"),
+            request_for_invocation(&args(&[backup]), cwd),
             Some(HostRequest::ImportBackup {
-                path: PathBuf::from(r"D:\backup\history.KwikPasteBak"),
+                path: PathBuf::from(backup),
                 source: RequestSource::SecondLaunch
             })
         );
-        // 备份文件优先于 --auto-launch。
-        assert!(matches!(
-            request_for_invocation(&args(&["--auto-launch", "a.kwikpastebak"]), r"C:\work"),
-            Some(HostRequest::ImportBackup { path, .. }) if path == Path::new(r"C:\work\a.kwikpastebak")
-        ));
+        // 备份文件优先于 --auto-launch，并相对于发送方的工作目录解析。
+        assert!(
+            matches!(request_for_invocation(&args(&["--auto-launch", "a.kwikpastebak"]), cwd),
+            Some(HostRequest::ImportBackup { path, .. }) if path == Path::new(cwd).join("a.kwikpastebak"))
+        );
     }
 }

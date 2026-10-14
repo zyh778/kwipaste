@@ -26,11 +26,18 @@ pub struct Autostart {
 impl Autostart {
     /// `name` 是启动项名（注册表值名 / plist 名），`exe` 是要启动的可执行文件。
     pub fn new(name: &str, exe: &Path) -> io::Result<Self> {
+        // AppImage 挂载目录随退出消失，自启必须记录原始 AppImage 路径。
+        #[cfg(target_os = "linux")]
+        let appimage = std::env::var_os("APPIMAGE").map(std::path::PathBuf::from);
+        #[cfg(target_os = "linux")]
+        let exe = appimage.as_deref().unwrap_or(exe);
         let exe = exe.to_string_lossy();
         #[cfg(target_os = "windows")]
         let app_path = crate::win::args::quote_arg(&exe);
         #[cfg(target_os = "macos")]
         let app_path = exe.into_owned();
+        #[cfg(target_os = "linux")]
+        let app_path = desktop_exec_path(&exe)?;
 
         let mut builder = AutoLaunchBuilder::new();
         builder
@@ -68,7 +75,7 @@ impl Autostart {
             }
             crate::win::autostart::remove_entries(&self.name)
         }
-        #[cfg(target_os = "macos")]
+        #[cfg(any(target_os = "macos", target_os = "linux"))]
         {
             if enabled {
                 self.inner.enable().map_err(io::Error::other)
@@ -76,5 +83,44 @@ impl Autostart {
                 self.inner.disable().map_err(io::Error::other)
             }
         }
+    }
+}
+
+/// Desktop Entry 的 Exec 有独立转义规则；双引号保护空格，百分号必须成对。
+#[cfg(target_os = "linux")]
+fn desktop_exec_path(path: &str) -> io::Result<String> {
+    if path.contains(['\n', '\r', '\0']) {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "autostart path contains a control character",
+        ));
+    }
+    let mut quoted = String::from("\"");
+    for ch in path.chars() {
+        match ch {
+            '%' => quoted.push_str("%%"),
+            '\\' => quoted.push_str("\\\\\\\\"),
+            '"' | '$' | '`' => {
+                quoted.push_str("\\\\");
+                quoted.push(ch);
+            }
+            _ => quoted.push(ch),
+        }
+    }
+    quoted.push('"');
+    Ok(quoted)
+}
+
+#[cfg(all(test, target_os = "linux"))]
+mod linux_tests {
+    use super::*;
+    /// AppImage 路径可以含空格和百分号，不能变成 Desktop Entry 字段或新行。
+    #[test]
+    fn quotes_desktop_exec_paths() {
+        assert_eq!(
+            desktop_exec_path("/tmp/My App 10%.AppImage").unwrap(),
+            "\"/tmp/My App 10%%.AppImage\""
+        );
+        assert!(desktop_exec_path("/tmp/app\nExec=bad").is_err());
     }
 }

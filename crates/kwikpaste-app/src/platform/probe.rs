@@ -89,7 +89,7 @@ pub fn panel_invariants(native: &NativePanel) -> anyhow::Result<()> {
     {
         native.check_invariants()
     }
-    #[cfg(target_os = "windows")]
+    #[cfg(any(target_os = "windows", target_os = "linux"))]
     {
         let _ = native;
         Ok(())
@@ -367,7 +367,7 @@ pub fn drag_started(data: &kwikpaste_os::drag_out::DragData) {
     };
     #[cfg(target_os = "windows")]
     let activations = kwikpaste_os::win::panel::counters().activations;
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     let activations = 0;
     write(
         "drag_started",
@@ -386,7 +386,7 @@ pub fn drag_finished(report: &kwikpaste_os::drag_out::DragReport, started: i64, 
         kwikpaste_os::win::panel::counters().activations,
         kwikpaste_os::win::foreground_window()
     );
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     let native = String::new();
     write(
         "drag_finished",
@@ -444,6 +444,10 @@ pub fn material(material: &super::material::WindowMaterial) {
 
 /// GPU 设备丢失自测的结果：累计丢失、恢复次数，最近一次恢复用时，恢复后画了几帧。
 #[cfg_attr(target_os = "macos", allow(dead_code))]
+#[cfg_attr(
+    target_os = "linux",
+    expect(dead_code, reason = "wgpu 未接设备丢失探针")
+)]
 pub fn device(event: &str, losses: u32, recoveries: u32, recovery_ms: u32, frames: u64) {
     write(
         event,

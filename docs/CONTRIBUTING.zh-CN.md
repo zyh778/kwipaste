@@ -11,9 +11,9 @@ migration 或升级处理。
 
 ## 平台范围
 
-KwikPaste 仅支持 macOS 与 Windows。
+KwikPaste 正式发布仅出 macOS 与 Windows。
 
-Linux 不在支持范围内，新增代码、依赖、构建产物和文档都应聚焦 macOS 与 Windows。
+Linux 为社区支持目标：X11 一等公民，Wayland 可编译但全局热键与模拟粘贴降级；本地构建产出 AppImage，不进官方发布产物与更新清单。
 
 ## 修改代码前
 
@@ -52,12 +52,15 @@ KwikPaste 采用 Rust-First 的 Tauri 架构：
 
 ### 环境要求
 
-- macOS 或 Windows。
+- macOS、Windows 或 Linux（X11）。
+- Linux 额外需要：`build-essential pkg-config patchelf libxkbcommon-dev libfontconfig1-dev libssl-dev libgtk-3-dev libglib2.0-dev libfuse2`。
 - Node.js 20 或更高版本。
 - pnpm 10 或更高版本。
 - `rust-toolchain.toml` 指定的 Rust 工具链（`1.96.0`，包含 `rustfmt` 和 `clippy`）。
 - Tauri v2 所需的系统原生依赖。请参考
   [Tauri prerequisites](https://tauri.app/start/prerequisites/) 中对应系统的说明。
+
+Linux 原生版的依赖安装、构建与验证见 [LINUX.md](LINUX.md)；Wayland 会话需要 XWayland。
 
 ### 安装依赖
 

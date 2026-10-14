@@ -134,6 +134,25 @@ fn main() -> anyhow::Result<()> {
     run_helper(std::io::stdin(), std::io::stdout().lock())
 }
 
+/// Linux 尚无 OCR 扩展引擎，遵循现有协议返回 Unsupported。
+#[cfg(target_os = "linux")]
+struct Engine;
+#[cfg(target_os = "linux")]
+impl Engine {
+    /// 让 Probe 明确报告不支持，不下载其它平台的二进制。
+    fn new() -> anyhow::Result<Self> {
+        anyhow::bail!("OCR is not available on Linux")
+    }
+    /// 保留与平台引擎一致的探测接口。
+    fn support(&self) -> OcrSupport {
+        OcrSupport::Unsupported
+    }
+    /// Linux 本地构建不会提交无法执行的识别任务。
+    fn recognize(&mut self, _path: &std::path::Path) -> anyhow::Result<Outcome> {
+        anyhow::bail!("OCR is not available on Linux")
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

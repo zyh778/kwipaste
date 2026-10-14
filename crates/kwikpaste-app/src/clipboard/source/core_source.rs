@@ -542,6 +542,7 @@ impl From<ClipboardItemView> for ListItem {
             platform: match item.platform {
                 CorePlatform::Macos => Platform::Macos,
                 CorePlatform::Windows => Platform::Windows,
+                CorePlatform::Linux => Platform::Linux,
             },
             note: item.note.map(shared),
             created_at: item.created_at,

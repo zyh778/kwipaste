@@ -143,7 +143,7 @@ pub fn running_as_admin() -> bool {
     {
         kwikpaste_os::win::admin::is_running_as_admin()
     }
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     false
 }
 
@@ -172,7 +172,7 @@ fn sync_admin_task(configured: bool) {
             Err(err) => log::warn!("admin task {} not synced: {err}", task.name()),
         }
     }
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     let _ = configured;
 }
 
@@ -210,7 +210,7 @@ pub fn elevate_if_configured() -> bool {
         }
         launched
     }
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     false
 }
 
@@ -276,7 +276,7 @@ fn restart_as_admin(cx: &mut App) -> anyhow::Result<()> {
         super::instance::reclaim(cx)?;
         anyhow::bail!("the administrator relaunch was cancelled or failed")
     }
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     {
         let _ = cx;
         anyhow::bail!("administrator launch is only available on Windows")

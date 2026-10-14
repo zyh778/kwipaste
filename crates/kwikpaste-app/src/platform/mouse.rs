@@ -110,3 +110,11 @@ pub fn serve(cx: &mut App, commands: Sender<PanelCommand>) {
         apply(&core.settings().shortcuts);
     }
 }
+
+/// TODO: Linux 尚未实现全局鼠标按键唤起；失焦隐藏由 GPUI 处理。
+#[cfg(target_os = "linux")]
+pub fn serve(_cx: &mut App, _commands: Sender<PanelCommand>) {}
+
+/// 未安装全局鼠标钩子时不应用专用按键设置。
+#[cfg(target_os = "linux")]
+pub fn apply(_shortcuts: &Shortcuts) {}

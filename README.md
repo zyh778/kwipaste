@@ -52,6 +52,8 @@ brew install --cask mansandadada/tap/kwikpaste
 
 **从 1.x 升级**：1.x 不会自动更新到 2.0，请下载 2.0 直接覆盖安装，记录、分组、设置和图片都会保留。升级后 1.x 无法再打开这份数据，如果之后可能退回 1.x，请先在 1.x 中「导出备份」。
 
+Linux 的原生 2.0 可在本地构建 AppImage，支持范围与步骤见 [Linux 构建说明](docs/LINUX.md)。Linux 本地包不使用上述自动更新通道。
+
 ## 使用
 
 | 快捷键 | 作用 |

@@ -5,6 +5,8 @@
 use gpui::{App, AsyncApp};
 use kwikpaste_core::settings::Shortcuts;
 
+#[cfg(target_os = "linux")]
+use kwikpaste_os::linux::trigger_pause as native;
 #[cfg(target_os = "macos")]
 use kwikpaste_os::mac::trigger_pause as native;
 #[cfg(target_os = "windows")]

@@ -46,6 +46,8 @@ const ALLOWED_HOSTS: [&str; 3] = ["fastthree.com", "github.com", "gitee.com"];
 const MAX_REMEMBERED: usize = 200;
 const PLATFORM: &str = if cfg!(target_os = "macos") {
     "macos"
+} else if cfg!(target_os = "linux") {
+    "linux"
 } else {
     "windows"
 };
@@ -506,7 +508,9 @@ impl Announcement {
             if let Some(min) = self.min_windows_build {
                 return matches!(facts.os, Some(OsVersion::WindowsBuild(build)) if build >= min);
             }
-        } else if let Some(min) = self.min_macos {
+        } else if PLATFORM == "macos"
+            && let Some(min) = self.min_macos
+        {
             return matches!(facts.os, Some(OsVersion::Macos(version)) if version >= min);
         }
         true

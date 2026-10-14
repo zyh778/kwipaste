@@ -271,7 +271,7 @@ pub fn spawn_relaunch(restart: &Restart) -> std::io::Result<u32> {
             "the restart was already started",
         ));
     }
-    let spawned = std::env::current_exe().and_then(|exe| {
+    let spawned = launch_executable().and_then(|exe| {
         let mut command = Command::new(exe);
         command.args(super::relaunch_args(
             std::env::args().skip(1),
@@ -308,7 +308,7 @@ pub fn spawn_relaunch(restart: &Restart) -> std::io::Result<u32> {
 /// Spawn the minimal external helper. Its command line contains only the state paths and the
 /// original app arguments, so a relaunch is an exact replay of the candidate that crashed.
 pub(super) fn start_watchdog(running_file: &Path, crash_file: &Path) {
-    let Ok(exe) = std::env::current_exe() else {
+    let Ok(exe) = launch_executable() else {
         return;
     };
     let mut command = Command::new(exe);
@@ -366,7 +366,7 @@ pub(super) fn run_watchdog(
         return;
     }
     let degraded = relaunch >= DEGRADED_FROM;
-    let Ok(exe) = std::env::current_exe() else {
+    let Ok(exe) = launch_executable() else {
         return;
     };
     let mut command = Command::new(exe);
@@ -410,8 +410,9 @@ fn wait_for_process(pid: u32) {
             }
         }
     }
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     {
+        // SAFETY: signal 0 只检查进程是否仍存在，不发送实际信号。
         while unsafe { libc::kill(pid as i32, 0) } == 0 {
             std::thread::sleep(Duration::from_millis(100));
         }
@@ -520,6 +521,18 @@ pub(super) fn watcher_crashed_recently(crash_file: &Path) -> bool {
 /// 崩溃记录的路径：`<bootstrap>/state/<name>`。
 pub(super) fn state_file(bootstrap: &Path, name: &str) -> PathBuf {
     bootstrap.join("state").join(name)
+}
+
+/// AppImage 重启必须启动原始镜像，不能依赖即将卸载的挂载目录。
+fn launch_executable() -> std::io::Result<std::path::PathBuf> {
+    #[cfg(target_os = "linux")]
+    if let Some(path) = std::env::var_os("APPIMAGE").map(std::path::PathBuf::from)
+        && path.is_absolute()
+        && path.is_file()
+    {
+        return Ok(path);
+    }
+    std::env::current_exe()
 }
 
 #[cfg(test)]

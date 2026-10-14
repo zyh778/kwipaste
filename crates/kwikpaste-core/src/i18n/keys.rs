@@ -66,6 +66,7 @@ pub enum StartupKey {
 
 #[derive(Debug, Clone, Copy)]
 pub enum TrayKey {
+    ShowClipboard,
     Preference,
     Exit,
 }

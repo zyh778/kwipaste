@@ -4949,6 +4949,7 @@ fn platform_label(platform: kwikpaste_core::db::models::Platform) -> &'static st
     match platform {
         kwikpaste_core::db::models::Platform::Windows => "Windows",
         kwikpaste_core::db::models::Platform::Macos => "macOS",
+        kwikpaste_core::db::models::Platform::Linux => "Linux",
     }
 }
 
@@ -5162,6 +5163,12 @@ pub(crate) fn search_matches(query: &str, title: &str, keywords: &[&str]) -> boo
         || keywords
             .iter()
             .any(|keyword| keyword.to_ascii_lowercase().contains(&query))
+}
+
+/// 普通窗口允许获取前台，面板仍使用独立的焦点恢复逻辑。
+#[cfg(target_os = "linux")]
+pub(super) fn bring_window_to_front(window: &Window) {
+    crate::platform::raise_linux_window(window);
 }
 
 #[cfg(test)]

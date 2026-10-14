@@ -634,7 +634,7 @@ fn smoke(cx: &mut App) {
             "smoke selftest: panel shown={} frames={frames}",
             shown.get()
         );
-        if !passed && cfg!(target_os = "windows") {
+        if !passed && cfg!(any(target_os = "windows", target_os = "linux")) {
             log::error!("smoke selftest failed: the panel never showed a frame");
             std::process::exit(1);
         }

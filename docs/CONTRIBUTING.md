@@ -14,10 +14,12 @@ user data when storage, settings, or database contracts change.
 
 ## Platform Scope
 
-KwikPaste supports macOS and Windows only.
+KwikPaste officially releases on macOS and Windows.
 
-Linux is not supported, and new code, dependencies, builds, and documentation
-should stay focused on macOS and Windows.
+Linux is a community-supported target: X11 is first-class, Wayland compiles
+but global hotkeys and paste synthesis are degraded. Local builds produce an
+AppImage; official release artifacts and update manifests stay macOS +
+Windows only.
 
 ## Before You Change Code
 
@@ -62,7 +64,9 @@ and `window://visibility`.
 
 ### Prerequisites
 
-- macOS or Windows.
+- macOS, Windows, or Linux (X11).
+- Linux additionally needs: `build-essential pkg-config patchelf libxkbcommon-dev
+  libfontconfig1-dev libssl-dev libgtk-3-dev libglib2.0-dev libfuse2`.
 - Node.js 20 or newer.
 - pnpm 10 or newer.
 - Rust toolchain from `rust-toolchain.toml` (`1.96.0`, with `rustfmt` and
@@ -70,6 +74,8 @@ and `window://visibility`.
 - Native dependencies required by Tauri v2. See the
   [Tauri prerequisites](https://tauri.app/start/prerequisites/) for your
   operating system.
+
+For native Linux builds, use the dependency script and commands in [LINUX.md](LINUX.md). Wayland sessions require XWayland.
 
 ### Install
 

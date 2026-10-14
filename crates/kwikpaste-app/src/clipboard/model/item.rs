@@ -39,6 +39,7 @@ pub enum SubKind {
 pub enum Platform {
     Macos,
     Windows,
+    Linux,
 }
 
 /// 文件卡片的渲染方式（core `FilesPreviewKind`）。

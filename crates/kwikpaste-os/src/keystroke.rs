@@ -5,6 +5,8 @@
 //! - Windows：`SendInput` 的 Ctrl+V。不用 Shift+Insert：Monaco 等编辑器把 Insert 当成切换改写模式。
 //! - macOS：CGEvent 的 ⌘V，需要「辅助功能」权限，未授权时系统静默丢弃。
 
+#[cfg(target_os = "linux")]
+use crate::linux::keystroke as platform;
 #[cfg(target_os = "macos")]
 use crate::mac::keystroke as platform;
 #[cfg(target_os = "windows")]

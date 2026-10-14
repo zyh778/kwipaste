@@ -73,6 +73,11 @@ export const targetInfo = (target) => {
       os: "windows",
       platform: "x86_64",
     },
+    "x86_64-unknown-linux-gnu": {
+      arch: "amd64",
+      os: "linux",
+      platform: "x86_64",
+    },
   };
   const info = table[target];
   if (!info) {
@@ -266,6 +271,29 @@ const packageWindows = (cli, options, version, info, release) => {
   return produced;
 };
 
+/**
+ * 本地 Linux 产物使用 AppImage；签名选项沿用既有打包入口，不生成远程更新清单。
+ */
+const packageLinux = (cli, options, version, info, release) => {
+  const product =
+    options.identity === "test" ? "KwikPasteBundleTest" : "KwikPaste";
+  const binary = join(release, "KwikPaste");
+  if (!existsSync(binary)) {
+    throw new Error(`${binary} does not exist; build it first`);
+  }
+  if (product !== "KwikPaste") {
+    copyFileSync(binary, join(release, product));
+  }
+  bundle(cli, options, "appimage", []);
+  const name = `${product}_${version}_${info.arch}.AppImage`;
+  copyWithSig(
+    join(release, "bundle", "appimage", name),
+    join(options.out, name),
+    options.sign,
+  );
+  return [name];
+};
+
 const packageMacos = (cli, options, version, info, release) => {
   const product =
     options.identity === "test" ? "KwikPasteBundleTest" : "KwikPaste";
@@ -323,7 +351,9 @@ const main = () => {
   const produced =
     info.os === "windows"
       ? packageWindows(cli, options, version, info, release)
-      : packageMacos(cli, options, version, info, release);
+      : info.os === "linux"
+        ? packageLinux(cli, options, version, info, release)
+        : packageMacos(cli, options, version, info, release);
   for (const name of produced) {
     say(`packaged ${join(options.out, name)}`);
   }

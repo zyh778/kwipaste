@@ -34,7 +34,7 @@ fn make_summary(plain: &str) -> Option<String> {
     Some(trimmed.chars().take(SUMMARY_MAX_CHARS).collect())
 }
 
-/// 当前平台标记。仅 macOS / Windows 双平台（见 AGENTS.md），其余 target 不应被编译进来。
+/// 当前平台标记（见 AGENTS.md 平台范围：macOS / Windows 正式发布，Linux 社区支持）。
 fn current_platform() -> Platform {
     #[cfg(target_os = "macos")]
     {
@@ -44,9 +44,9 @@ fn current_platform() -> Platform {
     {
         Platform::Windows
     }
-    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    #[cfg(target_os = "linux")]
     {
-        compile_error!("KwikPaste only supports macOS and Windows")
+        Platform::Linux
     }
 }
 

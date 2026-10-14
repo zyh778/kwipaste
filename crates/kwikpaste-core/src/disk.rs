@@ -84,7 +84,11 @@ fn available_space_at(path: &Path) -> Result<u64> {
     Ok(available)
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+#[allow(
+    clippy::unnecessary_cast,
+    reason = "statvfs 字段位宽随平台 ABI 变化，乘法统一使用 u64"
+)]
 fn available_space_at(path: &Path) -> Result<u64> {
     use std::ffi::CString;
     use std::os::unix::ffi::OsStrExt;

@@ -15,6 +15,10 @@ mod announcement;
 mod channel;
 mod download;
 pub mod extensions;
+#[cfg_attr(
+    all(target_os = "linux", not(test)),
+    allow(dead_code, reason = "Linux 本地构建不执行安装交接")
+)]
 mod handoff;
 mod http;
 mod manifest;
@@ -336,6 +340,8 @@ impl Updater {
             from: inner.core.info().version.to_string(),
             to: version.to_owned(),
         };
+        #[cfg(all(target_os = "linux", not(test)))]
+        let _ = (&package, &handoff);
         log::info!("installing update {version} ({:?})", inner.kind);
         self.stop();
 

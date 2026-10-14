@@ -259,6 +259,10 @@ async fn wait_for_modifiers_released(cx: &mut AsyncApp) -> bool {
 }
 
 fn foreground_window() -> isize {
+    #[cfg(target_os = "linux")]
+    {
+        kwikpaste_os::linux::x11::active_window().unwrap_or(0) as isize
+    }
     #[cfg(target_os = "windows")]
     {
         kwikpaste_os::win::foreground_window()

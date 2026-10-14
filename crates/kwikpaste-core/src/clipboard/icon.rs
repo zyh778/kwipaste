@@ -78,6 +78,7 @@ pub fn icon_png(path: &Path, size: Option<u32>) -> Option<Vec<u8>> {
     encode_icon(icon, path, size)
 }
 
+#[cfg(not(target_os = "linux"))]
 fn shell_icon(path: &Path, size: u32) -> Option<file_icon_provider::Icon> {
     match file_icon_provider::get_file_icon(path, size as u16) {
         Ok(icon) => Some(icon),
@@ -332,4 +333,10 @@ mod tests {
         assert_eq!(&png[..8], b"\x89PNG\r\n\x1a\n");
         println!("Finder.app icon PNG size: {} bytes", png.len());
     }
+}
+
+/// TODO: 用无 GTK 主线程要求的图标后端支持 Linux；后台线程调用 IconTheme 会 panic。
+#[cfg(target_os = "linux")]
+fn shell_icon(_path: &Path, _size: u32) -> Option<file_icon_provider::Icon> {
+    None
 }

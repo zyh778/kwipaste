@@ -17,14 +17,19 @@
         "role": "Editor"
       }
     ],
-    "icon": ["assets/icons/icon.ico", "assets/icons/icon.icns"],
+    "icon": [
+      "assets/icons/icon.ico",
+      "assets/icons/icon.icns",
+      "assets/icons/128x128.png",
+      "assets/icons/128x128@2x.png"
+    ],
     "license": "Apache-2.0",
     "licenseFile": "../../LICENSE",
     "macOS": {
       "minimumSystemVersion": "10.15"
     },
     "shortDescription": "快贴 - 本地优先剪贴板管理器",
-    "targets": ["nsis", "app", "dmg"],
+    "targets": ["nsis", "app", "dmg", "appimage"],
     "windows": {
       "digestAlgorithm": "sha256",
       "nsis": {

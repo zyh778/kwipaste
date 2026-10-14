@@ -78,6 +78,11 @@ pub fn migrate_legacy(core: &Core) {
 /// 1.x（tao）坐标系里的显示器：Windows 是虚拟桌面的物理像素；macOS 是 point 乘该屏的
 /// `backingScaleFactor`。
 fn legacy_monitors() -> Vec<LegacyMonitor> {
+    // Linux 未发布 1.x，本机没有需要迁移的旧窗口坐标。
+    #[cfg(target_os = "linux")]
+    {
+        Vec::new()
+    }
     #[cfg(target_os = "windows")]
     {
         kwikpaste_os::win::monitor::all()

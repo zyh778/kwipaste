@@ -83,6 +83,11 @@ impl Global for Hotkeys {}
 
 /// 创建管理器、启动事件桥，按当前设置注册热键。
 pub fn register(cx: &mut App, commands: Sender<PanelCommand>) -> anyhow::Result<()> {
+    // Wayland 下 global-hotkey 只能覆盖 XWayland 客户端，避免把局部行为报告为全局快捷键。
+    #[cfg(target_os = "linux")]
+    if kwikpaste_os::linux::is_wayland() {
+        anyhow::bail!("global shortcuts are unavailable in a Wayland session; use the tray menu");
+    }
     let manager = GlobalHotKeyManager::new()?;
     let actions = Actions::default();
     let (quick_sender, quick_receiver) = async_channel::unbounded();

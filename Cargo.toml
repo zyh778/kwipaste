@@ -128,6 +128,10 @@ unexpected_cfgs = "deny"
 gpui-pre-windows = { path = "third_party/gpui/gpui-pre-windows" }
 gpui-pre-macos = { path = "third_party/gpui/gpui-pre-macos" }
 gpui-pre = { path = "third_party/gpui/gpui-pre" }
+# XIM：上游 xim-ctext 不解 GB2312/KS X 1001，zed-xim 对解码失败直接 expect panic，
+# 中文输入法一提交就崩。两处都在本地副本里修掉（见 third_party/xim-ctext、third_party/zed-xim）。
+xim-ctext = { path = "third_party/xim-ctext" }
+zed-xim = { path = "third_party/zed-xim" }
 
 [profile.dev]
 debug = "line-tables-only"

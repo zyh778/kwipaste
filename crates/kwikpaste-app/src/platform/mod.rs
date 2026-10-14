@@ -54,6 +54,9 @@ mod watchdog;
 pub mod window_drag;
 mod window_state;
 
+#[cfg(target_os = "linux")]
+#[path = "native_linux.rs"]
+mod native;
 #[cfg(target_os = "macos")]
 #[path = "native_macos.rs"]
 mod native;
@@ -61,12 +64,12 @@ mod native;
 #[path = "native_windows.rs"]
 mod native;
 
+#[cfg(target_os = "windows")]
 use std::{
     cell::{Cell, RefCell},
-    path::PathBuf,
-    rc::Rc,
     time::Duration,
 };
+use std::{path::PathBuf, rc::Rc};
 
 use anyhow::Context as _;
 use gpui::{
@@ -98,9 +101,31 @@ pub fn open_window<V: Render>(
     cx: &mut App,
     build: impl FnOnce(&mut Window, &mut App) -> Entity<V>,
 ) -> gpui::Result<(AnyWindowHandle, Entity<V>)> {
+    // 与 AppImage 桌面入口的 StartupWMClass 对齐，方便桌面分组和运行验收定位窗口。
+    #[cfg(target_os = "linux")]
+    let options = WindowOptions {
+        app_id: Some(kwikpaste_core::APP_NAME.into()),
+        icon: app_icon(),
+        ..options
+    };
     let (handle, view) = kwikpaste_ui::open_window(options, cx, build)?;
     material::register_window(handle, cx);
     Ok((handle, view))
+}
+
+/// Linux 任务栏靠 `_NET_WM_ICON` 取窗口图标；嵌一份 256px PNG，整个进程只解码一次。
+#[cfg(target_os = "linux")]
+fn app_icon() -> Option<std::sync::Arc<image::RgbaImage>> {
+    use std::sync::OnceLock;
+    static ICON: OnceLock<Option<std::sync::Arc<image::RgbaImage>>> = OnceLock::new();
+    ICON.get_or_init(|| {
+        let bytes = include_bytes!("../../assets/icons/128x128@2x.png");
+        let image = image::load_from_memory(bytes)
+            .map_err(|error| log::warn!("could not decode app icon: {error}"))
+            .ok()?;
+        Some(std::sync::Arc::new(image.to_rgba8()))
+    })
+    .clone()
 }
 
 #[cfg(target_os = "windows")]
@@ -147,7 +172,7 @@ pub fn reveal_after_first_frame(
     cx: &mut App,
     on_revealed: impl FnOnce(&mut Window, &mut App) + 'static,
 ) {
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     on_revealed(window, cx);
 
     #[cfg(target_os = "windows")]
@@ -270,8 +295,14 @@ pub fn create() -> anyhow::Result<Rc<dyn Platform>> {
     Ok(Rc::new(platform))
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 pub fn create() -> anyhow::Result<Rc<dyn Platform>> {
+    #[cfg(target_os = "linux")]
+    {
+        kwikpaste_os::linux::x11::connection()
+            .context("Linux requires an X11 or XWayland display")?;
+        gtk::init().map_err(|err| anyhow::anyhow!("GTK initialization failed: {err}"))?;
+    }
     Ok(gpui_platform::current_platform(false))
 }
 
@@ -473,4 +504,21 @@ pub fn request(cx: &App, command: PanelCommand) {
 /// 钩子会派发给面板的全部按键组合（GPUI keystroke 字符串），供 UI 核对绑定。
 pub fn hook_keystrokes() -> Vec<String> {
     kwikpaste_os::hook_keys::keystrokes()
+}
+
+/// 映射并聚焦普通 Linux 窗口，供偏好设置和更新窗口复用。
+#[cfg(target_os = "linux")]
+pub(crate) fn raise_linux_window(window: &Window) {
+    use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+    let Ok(handle) = HasWindowHandle::window_handle(window) else {
+        return;
+    };
+    let id = match handle.as_raw() {
+        RawWindowHandle::Xcb(handle) => handle.window.get(),
+        RawWindowHandle::Xlib(handle) => handle.window as u32,
+        _ => return,
+    };
+    if let Err(err) = kwikpaste_os::linux::x11::show(id, true) {
+        log::warn!("Linux window could not be raised: {err}");
+    }
 }

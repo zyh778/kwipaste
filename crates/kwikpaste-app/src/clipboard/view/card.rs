@@ -566,6 +566,7 @@ fn app_icon(env: &CardEnv<'_>, item: &ListItem, state: Option<Visual>) -> AnyEle
             _ if is_wetype_origin(item) => IconName::Smartphone,
             Platform::Macos => IconName::Laptop,
             Platform::Windows => IconName::Monitor,
+            Platform::Linux => IconName::Monitor,
         };
         return div()
             .flex_none()

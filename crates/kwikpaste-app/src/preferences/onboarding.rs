@@ -47,7 +47,6 @@ impl Global for OnboardingWindow {}
 pub fn open(cx: &mut App) -> anyhow::Result<()> {
     if let Some(handle) = cx.try_global::<OnboardingWindow>().map(|host| host.handle) {
         return handle.update(cx, |_, window, _| {
-            #[cfg(any(target_os = "windows", target_os = "macos"))]
             view::bring_window_to_front(window);
         });
     }
@@ -123,6 +122,7 @@ impl Onboarding {
             }
             #[cfg(not(any(target_os = "windows", target_os = "macos")))]
             {
+                let _ = core;
                 false
             }
         });
@@ -616,7 +616,8 @@ impl Onboarding {
     }
 
     fn render_permissions(&self, cx: &mut Context<Self>) -> gpui::AnyElement {
-        let mut rows = Vec::new();
+        #[cfg_attr(target_os = "linux", allow(unused_mut))]
+        let mut rows: Vec<gpui::AnyElement> = Vec::new();
         let description_key = if cfg!(target_os = "macos") {
             "onboarding:permissions.description.macos"
         } else {
