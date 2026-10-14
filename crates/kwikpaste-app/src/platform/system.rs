@@ -45,6 +45,16 @@ fn read() -> SystemSignals {
     #[cfg(target_os = "macos")]
     let settings = kwikpaste_os::mac::system::read();
 
+    // Linux 由 GPUI 跟随窗口外观；尚未订阅桌面辅助功能设置。
+    #[cfg(target_os = "linux")]
+    let settings = SystemSignals {
+        text_scale: 1.0,
+        high_contrast: false,
+        reduce_motion: false,
+        transparency: false,
+        dark: false,
+    };
+
     let override_scale = selftest::active()
         .then(|| std::env::var("KP_TEXT_SCALE").ok()?.parse::<f64>().ok())
         .flatten();
@@ -141,3 +151,7 @@ pub fn serve(cx: &mut App, _commands: Sender<PanelCommand>) {
     })
     .detach();
 }
+
+/// TODO: 订阅 Linux 桌面辅助功能设置；当前使用稳定默认值。
+#[cfg(target_os = "linux")]
+pub fn serve(_cx: &mut App, _commands: Sender<PanelCommand>) {}

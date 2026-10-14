@@ -278,6 +278,7 @@ mod tests {
     use chrono::{TimeZone, Utc};
 
     use super::super::{
+        filter::Category,
         item::Platform,
         list_model::{FetchRequest, Page},
     };
@@ -583,7 +584,7 @@ mod tests {
 
         controller.set_filter(ListFilter {
             keyword: "发票".into(),
-            category: Some(ItemKind::Text),
+            category: Some(Category::Text),
             ..ListFilter::default()
         });
         assert_eq!(

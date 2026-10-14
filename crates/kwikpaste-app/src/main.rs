@@ -16,6 +16,11 @@ mod selftest;
 use gpui::{App, Application};
 
 fn main() -> anyhow::Result<()> {
+    // SAFETY: 此时尚未创建线程，选择 XWayland 不会与其它线程的环境读取竞争。
+    #[cfg(target_os = "linux")]
+    unsafe {
+        kwikpaste_os::linux::prepare_display();
+    }
     #[cfg(target_os = "windows")]
     if ocr_memory::run_if_requested()? {
         return Ok(());

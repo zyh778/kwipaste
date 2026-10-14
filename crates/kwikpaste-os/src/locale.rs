@@ -22,6 +22,16 @@ pub fn system_locale() -> Option<String> {
     Some(first.to_string())
 }
 
+/// 按 POSIX 优先级读取语言，去掉编码与修饰符并转换成 BCP 47。
+#[cfg(target_os = "linux")]
+pub fn system_locale() -> Option<String> {
+    let locale = ["LC_ALL", "LC_MESSAGES", "LANG"]
+        .into_iter()
+        .find_map(|key| std::env::var(key).ok().filter(|value| !value.is_empty()))?;
+    let tag = locale.split(['.', '@']).next()?.replace('_', "-");
+    (!matches!(tag.as_str(), "C" | "POSIX") && !tag.is_empty()).then_some(tag)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -37,6 +37,10 @@ pub struct Package {
     /// 本次更新的临时目录。
     pub dir: PathBuf,
     /// 安装包文件：NSIS 是 `KwikPaste-<v>-installer.exe`，便携版是 zip，macOS 是 `.app.tar.gz`。
+    #[cfg_attr(
+        all(target_os = "linux", not(test)),
+        allow(dead_code, reason = "Linux 不执行安装交接")
+    )]
     pub file: PathBuf,
 }
 

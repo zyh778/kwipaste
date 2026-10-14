@@ -3,7 +3,7 @@
 
 use std::sync::Arc;
 
-use super::item::{ItemKind, ListItem};
+use super::item::{ItemKind, ListItem, SubKind};
 
 /// 范围：全部或收藏，始终有一个选中（1.x `ClipboardRange`）。
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -23,15 +23,29 @@ impl Range {
     }
 }
 
-/// 分组栏里分类按钮的顺序（文本、图片、文件）。
-pub const CATEGORIES: [ItemKind; 3] = [ItemKind::Text, ItemKind::Image, ItemKind::Files];
+/// 分组栏里的分类；链接是文本记录里识别为 URL 的子集，紧跟文本。
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Category {
+    Text,
+    Link,
+    Image,
+    Files,
+}
+
+/// 分组栏里分类按钮的顺序（文本、链接、图片、文件）。
+pub const CATEGORIES: [Category; 4] = [
+    Category::Text,
+    Category::Link,
+    Category::Image,
+    Category::Files,
+];
 
 /// 当前视图的筛选条件。改动任何一项列表都整体重载。
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct ListFilter {
     pub range: Range,
     /// 分类；再次点击当前分类时取消。
-    pub category: Option<ItemKind>,
+    pub category: Option<Category>,
     /// 自定义分组；再次点击当前分组时取消。
     pub group_id: Option<Arc<str>>,
     /// 搜索词（已去掉首尾空白）。
@@ -54,19 +68,35 @@ impl ListFilter {
             return false;
         }
 
+        let matches_kind = |category: Category, kind: ItemKind| match category {
+            Category::Text => kind == ItemKind::Text,
+            // 链接记录在库里是文本类型；这里只知道类型，宁可多刷新一次。
+            Category::Link => kind == ItemKind::Text,
+            // 单个图片文件的记录属于「图片」分组，这里只知道类型，宁可多刷新一次。
+            Category::Image => kind == ItemKind::Image || kind == ItemKind::Files,
+            Category::Files => kind == ItemKind::Files,
+        };
         match (self.category, kind) {
             (None, _) => true,
             (Some(_), None) => false,
-            // 单个图片文件的记录属于「图片」分组，这里只知道类型，宁可多刷新一次。
-            (Some(ItemKind::Image), Some(ItemKind::Files)) => true,
-            (Some(category), Some(kind)) => category == kind,
+            (Some(category), Some(kind)) => matches_kind(category, kind),
         }
     }
 
     /// 夹具数据源的过滤：与 core 的查询语义一致（分类、收藏、分组、搜索词不区分大小写地包含在
     /// 摘要、备注或文件名里）。core 的搜索走 FTS，这里只求自测可用。
     pub fn matches(&self, item: &ListItem) -> bool {
-        if self.category.is_some_and(|category| category != item.kind) {
+        if self.category.is_some_and(|category| {
+            !match category {
+                Category::Text => item.kind == ItemKind::Text,
+                // 链接是文本记录里 sub_kind 识别为 URL 的子集。
+                Category::Link => {
+                    item.kind == ItemKind::Text && item.sub_kind == Some(SubKind::Url)
+                }
+                Category::Image => item.kind == ItemKind::Image,
+                Category::Files => item.kind == ItemKind::Files,
+            }
+        }) {
             return false;
         }
         if self.favorites() && !item.is_favorite {
@@ -89,7 +119,7 @@ impl ListFilter {
     }
 
     /// ←/→：在固定分类序列里循环；还没选分类时从方向对应的一端进入（1.x `selectAdjacentCategory`）。
-    pub fn adjacent_category(&self, forward: bool) -> ItemKind {
+    pub fn adjacent_category(&self, forward: bool) -> Category {
         let count = CATEGORIES.len();
         let next = match self
             .category
@@ -101,7 +131,7 @@ impl ListFilter {
             None => count - 1,
         };
 
-        CATEGORIES.get(next).copied().unwrap_or(ItemKind::Text)
+        CATEGORIES.get(next).copied().unwrap_or(Category::Text)
     }
 }
 
@@ -135,21 +165,21 @@ mod tests {
     #[test]
     fn categories_cycle_from_the_matching_end() {
         let none = ListFilter::default();
-        assert_eq!(none.adjacent_category(true), ItemKind::Text);
-        assert_eq!(none.adjacent_category(false), ItemKind::Files);
+        assert_eq!(none.adjacent_category(true), Category::Text);
+        assert_eq!(none.adjacent_category(false), Category::Files);
 
         let image = ListFilter {
-            category: Some(ItemKind::Image),
+            category: Some(Category::Image),
             ..ListFilter::default()
         };
-        assert_eq!(image.adjacent_category(true), ItemKind::Files);
-        assert_eq!(image.adjacent_category(false), ItemKind::Text);
+        assert_eq!(image.adjacent_category(true), Category::Files);
+        assert_eq!(image.adjacent_category(false), Category::Link);
 
         let files = ListFilter {
-            category: Some(ItemKind::Files),
+            category: Some(Category::Files),
             ..ListFilter::default()
         };
-        assert_eq!(files.adjacent_category(true), ItemKind::Text, "wraps");
+        assert_eq!(files.adjacent_category(true), Category::Text, "wraps");
     }
 
     #[test]
@@ -180,7 +210,7 @@ mod tests {
         assert!(all.may_include(Some(ItemKind::Image)));
 
         let text = ListFilter {
-            category: Some(ItemKind::Text),
+            category: Some(Category::Text),
             ..ListFilter::default()
         };
         assert!(text.may_include(Some(ItemKind::Text)));
@@ -188,7 +218,7 @@ mod tests {
         assert!(!text.may_include(None));
 
         let image = ListFilter {
-            category: Some(ItemKind::Image),
+            category: Some(Category::Image),
             ..ListFilter::default()
         };
         assert!(image.may_include(Some(ItemKind::Files)), "image files");

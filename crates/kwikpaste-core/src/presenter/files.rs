@@ -80,6 +80,8 @@ pub(crate) async fn resolve_file_icon_path(
     let exists = path_obj.exists();
     let platform = if cfg!(target_os = "macos") {
         Platform::Macos
+    } else if cfg!(target_os = "linux") {
+        Platform::Linux
     } else {
         Platform::Windows
     };

@@ -47,6 +47,9 @@ impl InstallKind {
 
     /// 按给定 exe 路径判定。
     pub fn for_exe(exe: &Path) -> Self {
+        if cfg!(target_os = "linux") {
+            return Self::Unmanaged;
+        }
         if cfg!(target_os = "macos") {
             return app_bundle(exe).map_or(Self::Unmanaged, |bundle| Self::MacApp { bundle });
         }
@@ -93,6 +96,8 @@ fn arch() -> &'static str {
 pub(crate) fn extension_target() -> String {
     let os = if cfg!(target_os = "macos") {
         "darwin"
+    } else if cfg!(target_os = "linux") {
+        "linux"
     } else {
         "windows"
     };
@@ -144,6 +149,7 @@ fn same_dir(left: &Path, right: &Path) -> bool {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(any(target_os = "windows", target_os = "macos"))]
     use std::fs;
 
     use super::*;

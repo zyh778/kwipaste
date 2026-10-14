@@ -304,7 +304,7 @@ pub(crate) fn compute_available_actions(
     if can_reveal {
         #[cfg(target_os = "macos")]
         actions.push(ClipboardAction::RevealInFinder);
-        #[cfg(target_os = "windows")]
+        #[cfg(any(target_os = "windows", target_os = "linux"))]
         actions.push(ClipboardAction::RevealInExplorer);
     }
 

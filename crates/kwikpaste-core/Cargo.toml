@@ -57,5 +57,9 @@ windows-sys = { workspace = true, features = ["Win32_Storage_FileSystem", "Win32
 [target.'cfg(target_os = "macos")'.dependencies]
 libc.workspace = true
 
+[target.'cfg(target_os = "linux")'.dependencies]
+# 磁盘可用空间走 statvfs。
+libc.workspace = true
+
 [lints]
 workspace = true

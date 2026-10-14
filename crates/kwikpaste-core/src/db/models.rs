@@ -29,6 +29,7 @@ pub enum ClipboardSubKind {
 pub enum Platform {
     Macos,
     Windows,
+    Linux,
 }
 
 /// 一条剪贴板记录的数据库行（含列表查询 JOIN 出的来源应用名与图标文件名）。
@@ -156,6 +157,8 @@ pub struct ClipboardItemQuery {
 pub enum ClipboardGroupFilter {
     All,
     Text,
+    /// 链接：文本记录里识别为 URL 的子集（`sub_kind = url`）。
+    Link,
     Image,
     Files,
     Favorite,
@@ -174,6 +177,38 @@ impl Default for ClipboardItemQuery {
             sort: ClipboardItemSort::UpdatedAt,
             limit: 20,
             offset: 0,
+        }
+    }
+}
+
+#[cfg(test)]
+mod platform_tests {
+    use super::Platform;
+
+    /// 新增 Linux 标签保留原有标签，JSON 与 SQLite 使用同一文本契约。
+    #[tokio::test]
+    async fn platform_tags_roundtrip_json_and_sqlite() {
+        let pool = sqlx::SqlitePool::connect("sqlite::memory:").await.unwrap();
+        for (platform, tag) in [
+            (Platform::Macos, "macos"),
+            (Platform::Windows, "windows"),
+            (Platform::Linux, "linux"),
+        ] {
+            let json = serde_json::to_string(&platform).unwrap();
+            assert_eq!(json, format!("\"{tag}\""));
+            assert_eq!(serde_json::from_str::<Platform>(&json).unwrap(), platform);
+            let encoded: String = sqlx::query_scalar("SELECT ?")
+                .bind(platform)
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+            assert_eq!(encoded, tag);
+            let decoded: Platform = sqlx::query_scalar("SELECT ?")
+                .bind(tag)
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+            assert_eq!(decoded, platform);
         }
     }
 }

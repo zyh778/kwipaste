@@ -21,6 +21,11 @@ impl OsVersion {
 
 /// 读本机系统版本；读不出来返回 `None`，带系统要求的更新和公告按不满足处理。
 pub fn current() -> Option<OsVersion> {
+    // Linux 本地 AppImage 不参与官方更新，不套用 Windows/macOS 系统要求。
+    #[cfg(target_os = "linux")]
+    {
+        None
+    }
     #[cfg(target_os = "windows")]
     {
         windows_build().map(OsVersion::WindowsBuild)
@@ -83,6 +88,7 @@ mod tests {
     }
 
     /// 只读系统信息，不改任何东西。
+    #[cfg(any(target_os = "windows", target_os = "macos"))]
     #[test]
     fn reads_the_running_system() {
         let version = current().expect("system version should be readable");

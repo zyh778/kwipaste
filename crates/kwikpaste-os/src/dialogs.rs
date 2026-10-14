@@ -28,6 +28,7 @@ pub fn show(title: &str, body: &str, buttons: &[DialogButton]) -> Option<usize> 
     }
     #[allow(unreachable_code)]
     {
+        let _ = (title, body, buttons);
         log::warn!("native dialog is unavailable on this platform");
         None
     }
@@ -49,6 +50,13 @@ pub fn open_url(url: &str) -> std::io::Result<()> {
             .spawn()
             .map(|_| ());
     }
+    #[cfg(target_os = "linux")]
+    {
+        return std::process::Command::new("xdg-open")
+            .arg(url)
+            .spawn()
+            .map(|_| ());
+    }
     #[allow(unreachable_code)]
     Err(std::io::Error::other("opening URLs is unsupported"))
 }
@@ -65,6 +73,13 @@ pub fn open_path(path: &Path) -> std::io::Result<()> {
     #[cfg(target_os = "macos")]
     {
         return std::process::Command::new("open")
+            .arg(path)
+            .spawn()
+            .map(|_| ());
+    }
+    #[cfg(target_os = "linux")]
+    {
+        return std::process::Command::new("xdg-open")
             .arg(path)
             .spawn()
             .map(|_| ());

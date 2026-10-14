@@ -50,6 +50,8 @@ fn at(y: i32, mo: u32, d: u32, h: u32, mi: u32) -> DateTime<Utc> {
 fn current_platform() -> Platform {
     if cfg!(target_os = "macos") {
         Platform::Macos
+    } else if cfg!(target_os = "linux") {
+        Platform::Linux
     } else {
         Platform::Windows
     }

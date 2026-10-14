@@ -12,6 +12,8 @@
 
 use std::io;
 
+#[cfg(target_os = "linux")]
+use crate::linux::single_instance as platform;
 #[cfg(target_os = "macos")]
 use crate::mac::single_instance as platform;
 #[cfg(target_os = "windows")]

@@ -92,7 +92,7 @@ fn threshold(window: &Window) -> (Pixels, Pixels) {
         let scale = window.scale_factor().max(1.0);
         (px(x as f32 / scale), px(y as f32 / scale))
     }
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     {
         let _ = window;
         (px(3.0), px(3.0))
@@ -180,6 +180,10 @@ impl DragTarget {
             RawWindowHandle::Win32(handle) => handle.hwnd.get(),
             #[cfg(target_os = "macos")]
             RawWindowHandle::AppKit(handle) => handle.ns_view.as_ptr() as isize,
+            #[cfg(target_os = "linux")]
+            RawWindowHandle::Xcb(handle) => handle.window.get() as isize,
+            #[cfg(target_os = "linux")]
+            RawWindowHandle::Xlib(handle) => handle.window as isize,
             _ => return Err(anyhow!("unsupported drag source window")),
         };
 
@@ -222,6 +226,13 @@ async fn run(
             .recv()
             .await
             .context("macOS drag session ended without a result")?)
+    };
+
+    // TODO: Linux 需要 Xdnd 拖出实现；明确报错并保留复制/粘贴主路径。
+    #[cfg(target_os = "linux")]
+    let report: anyhow::Result<DragReport> = {
+        let _ = (target.native, preview_png);
+        Err(anyhow!("drag-out is not available on Linux"))
     };
 
     let returned = kwikpaste_os::clock::now_ticks();

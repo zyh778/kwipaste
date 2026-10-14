@@ -20,6 +20,8 @@ use super::panel::{PanelCommand, Trigger, TriggerSource};
 use crate::core_host;
 
 const TRAY_ID: &str = "app-tray";
+#[cfg(target_os = "linux")]
+const MENU_CLIPBOARD: &str = "tray::clipboard";
 const MENU_PREFERENCE: &str = "tray::preference";
 const MENU_EXIT: &str = "tray::exit";
 const ICON: &[u8] = include_bytes!("../../assets/tray.ico");
@@ -32,9 +34,11 @@ struct Tray {
 impl Global for Tray {}
 
 enum TrayAction {
+    #[cfg(target_os = "linux")]
+    Clipboard,
     #[cfg_attr(
-        target_os = "macos",
-        expect(dead_code, reason = "macOS 左键弹菜单，不单独处理左键")
+        not(target_os = "windows"),
+        expect(dead_code, reason = "仅 Windows 单独处理托盘左键")
     )]
     LeftClick,
     Preference,
@@ -61,6 +65,25 @@ pub fn create(cx: &mut App, commands: Sender<PanelCommand>) -> anyhow::Result<()
     }
 
     cx.set_global(Tray { icon: Some(icon) });
+    #[cfg(target_os = "linux")]
+    cx.spawn(async move |cx| {
+        loop {
+            cx.background_executor()
+                .timer(std::time::Duration::from_millis(20))
+                .await;
+            cx.update(|_| {
+                let context = gtk::glib::MainContext::default();
+                // 每次限制分发数量，避免外部 D-Bus 消息使 UI 长时间饥饿。
+                for _ in 0..32 {
+                    if !context.pending() {
+                        break;
+                    }
+                    context.iteration(false);
+                }
+            });
+        }
+    })
+    .detach();
     cx.on_app_quit(|cx| {
         remove(cx);
         async {}
@@ -76,6 +99,8 @@ pub fn create(cx: &mut App, commands: Sender<PanelCommand>) -> anyhow::Result<()
             let events = MenuEvent::receiver();
             while let Ok(event) = events.recv() {
                 let action = match event.id.as_ref() {
+                    #[cfg(target_os = "linux")]
+                    MENU_CLIPBOARD => TrayAction::Clipboard,
                     MENU_PREFERENCE => TrayAction::Preference,
                     MENU_EXIT => TrayAction::Exit,
                     _ => continue,
@@ -89,6 +114,12 @@ pub fn create(cx: &mut App, commands: Sender<PanelCommand>) -> anyhow::Result<()
     cx.spawn(async move |cx: &mut AsyncApp| {
         while let Ok(action) = receiver.recv().await {
             match action {
+                #[cfg(target_os = "linux")]
+                TrayAction::Clipboard => {
+                    let _ = commands
+                        .send(PanelCommand::Show(Trigger::now(TriggerSource::Tray)))
+                        .await;
+                }
                 TrayAction::Exit => cx.update(|cx| cx.quit()),
                 TrayAction::Preference => cx.update(|cx| {
                     host::dispatch(
@@ -148,6 +179,14 @@ pub fn apply(settings: &Settings, cx: &mut App) {
 fn build_menu(settings: &Settings) -> anyhow::Result<Menu> {
     let language = settings.appearance.language;
     let menu = Menu::new();
+    // Wayland 降级模式没有全局快捷键，必须保留可操作的面板入口。
+    #[cfg(target_os = "linux")]
+    menu.append(&MenuItem::with_id(
+        MENU_CLIPBOARD,
+        tray_i18n::label(language, Key::ShowClipboard),
+        true,
+        None,
+    ))?;
     menu.append_items(&[
         &MenuItem::with_id(
             MENU_PREFERENCE,

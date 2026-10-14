@@ -112,6 +112,7 @@ impl ExtensionManager {
             cards: Mutex::new(
                 KNOWN
                     .iter()
+                    .filter(|_| kwikpaste_core::extensions::AVAILABLE)
                     .map(|(id, _)| Card {
                         id,
                         catalog: None,
@@ -180,6 +181,10 @@ impl ExtensionManager {
 
     /// 串行刷新避免目录与安装交错；网络失败只清空可安装项，不改变 Core 安装状态。
     async fn refresh_inner(&self) -> Result<Vec<ExtensionStatus>> {
+        // 扩展下线期间不拉目录：没有卡片要更新，也避免每次启动都留一条失败日志。
+        if !kwikpaste_core::extensions::AVAILABLE {
+            return Ok(self.status());
+        }
         let _guard = self.0.operations.lock().await;
         let fetched = self.catalog().await;
         {

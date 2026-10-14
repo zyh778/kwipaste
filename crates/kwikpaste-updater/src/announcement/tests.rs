@@ -23,7 +23,7 @@ fn item_json(id: &str) -> serde_json::Value {
         "title": { "zh-CN": "标题", "en-US": "Title" },
         "body": { "zh-CN": "第一行\n第二行", "en-US": "Body" },
         "action": { "label": { "zh-CN": "去下载", "en-US": "Download" }, "url": "https://paste.fastthree.com/" },
-        "match": { "platforms": ["windows", "macos"], "minAppVersion": null, "maxAppVersion": null, "minWindowsBuild": null, "minMacos": null },
+        "match": { "platforms": ["windows", "macos", "linux"], "minAppVersion": null, "maxAppVersion": null, "minWindowsBuild": null, "minMacos": null },
         "startsAt": null,
         "endsAt": null,
         "repeat": "once",
@@ -136,8 +136,15 @@ fn audience_rules() {
     assert!(native[0].matches(&facts("1.4.0", os), now));
     assert!(native[0].matches(&facts("1.4.0-beta.1", os), now));
     assert!(!native[0].matches(&facts("2.0.0", os), now));
-    assert!(!native[0].matches(&facts("1.4.0", old_os), now));
-    assert!(!native[0].matches(&facts("1.4.0", None), now));
+    // Windows/macOS 的最低系统版本不约束 Linux；平台名单仍必须显式匹配。
+    assert_eq!(
+        native[0].matches(&facts("1.4.0", old_os), now),
+        PLATFORM == "linux"
+    );
+    assert_eq!(
+        native[0].matches(&facts("1.4.0", None), now),
+        PLATFORM == "linux"
+    );
 
     let fresh = one(|v| v["match"]["minAppVersion"] = "1.4.0".into());
     assert!(!fresh[0].matches(&facts("1.4.0-beta.1", os), now));

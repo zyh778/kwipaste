@@ -208,6 +208,7 @@ fn parse_service(
     let platform = match txt.platform? {
         "macos" => Platform::Macos,
         "windows" => Platform::Windows,
+        "linux" => Platform::Linux,
         _ => return None,
     };
     let mut unique: Vec<SocketAddr> = Vec::new();
@@ -239,6 +240,7 @@ pub fn platform_tag(platform: Platform) -> &'static str {
     match platform {
         Platform::Macos => "macos",
         Platform::Windows => "windows",
+        Platform::Linux => "linux",
     }
 }
 
@@ -260,6 +262,17 @@ mod tests {
             version,
             min_version,
         }
+    }
+
+    /// Linux 的广播标签必须能被本版本发现并保持协议协商信息。
+    #[test]
+    fn discovers_linux_peer() {
+        let mut record = txt(Some("3"), Some("2"));
+        record.platform = Some("linux");
+        let found =
+            parse_service(record, ["192.168.1.8:41573".parse().unwrap()].into_iter()).unwrap();
+        assert_eq!(found.platform, Platform::Linux);
+        assert_eq!(platform_tag(found.platform), "linux");
     }
 
     #[test]

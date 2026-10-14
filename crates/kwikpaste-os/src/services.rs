@@ -10,6 +10,8 @@ use std::path::Path;
 use kwikpaste_core::platform::{FrontmostApp, PlatformServices, ScannedApp};
 use kwikpaste_core::{AppError, Result};
 
+#[cfg(target_os = "linux")]
+use crate::linux::apps as native;
 #[cfg(target_os = "macos")]
 use crate::mac::apps as native;
 #[cfg(target_os = "windows")]

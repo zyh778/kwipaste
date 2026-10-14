@@ -270,8 +270,9 @@ fn not_custom_density(settings: &Settings) -> bool {
 }
 
 /// 全部分类。平台条件与 1.x 相同；`portable` 时不显示以管理员身份运行（计划任务记着 exe 路径）。
+/// 扩展下线期间连「扩展」页一起隐藏（`kwikpaste_core::extensions::AVAILABLE`）。
 pub fn tabs(portable: bool) -> Vec<Tab> {
-    vec![
+    let mut tabs = vec![
         Tab {
             id: TabId::General,
             group: Group::App,
@@ -330,12 +331,6 @@ pub fn tabs(portable: bool) -> Vec<Tab> {
             }],
         },
         Tab {
-            id: TabId::Extensions,
-            group: Group::Data,
-            icon: PrefIcon::Puzzle,
-            sections: extensions_sections(),
-        },
-        Tab {
             id: TabId::Overview,
             group: Group::Data,
             icon: PrefIcon::ChartPie,
@@ -367,7 +362,19 @@ pub fn tabs(portable: bool) -> Vec<Tab> {
             icon: PrefIcon::Info,
             sections: about_sections(),
         },
-    ]
+    ];
+    if kwikpaste_core::extensions::AVAILABLE {
+        tabs.insert(
+            tabs.iter().position(|tab| tab.id == TabId::Overview).unwrap_or(tabs.len()),
+            Tab {
+                id: TabId::Extensions,
+                group: Group::Data,
+                icon: PrefIcon::Puzzle,
+                sections: extensions_sections(),
+            },
+        );
+    }
+    tabs
 }
 
 /// 扩展卡片下保留原有识别状态行，设置项标识不随页面迁移改变。
@@ -1187,8 +1194,12 @@ mod tests {
                     && matches!(setting.control, Control::ImageTextStatus))
         );
         let tabs = tabs(false);
-        let sync = tabs.iter().position(|tab| tab.id == TabId::Sync).unwrap();
-        assert_eq!(tabs[sync + 1].id, TabId::Extensions);
+        if kwikpaste_core::extensions::AVAILABLE {
+            let sync = tabs.iter().position(|tab| tab.id == TabId::Sync).unwrap();
+            assert_eq!(tabs[sync + 1].id, TabId::Extensions);
+        } else {
+            assert!(!tabs.iter().any(|tab| tab.id == TabId::Extensions));
+        }
         let manager = &extensions[0].settings[0];
         assert!(manager.control.full_width());
         for keyword in ["扩展", "插件", "extension", "plugin", "OCR", "文字识别"] {

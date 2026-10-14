@@ -64,3 +64,9 @@ workspace = true
 
 [lints]
 workspace = true
+
+[target.'cfg(target_os = "linux")'.dependencies]
+gpui_platform = { workspace = true, features = ["x11", "wayland"] }
+tray-icon = { workspace = true, features = ["gtk"] }
+gtk = "0.18"
+libc.workspace = true

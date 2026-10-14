@@ -113,6 +113,9 @@ impl MenuAction {
             Self::OpenLink => "clipboard:menu.openLink",
             Self::SendEmail => "clipboard:menu.sendEmail",
             Self::RevealInFinder => "clipboard:menu.revealInFinder",
+            Self::RevealInExplorer if cfg!(target_os = "linux") => {
+                "clipboard:menu.revealInFileManager"
+            }
             Self::RevealInExplorer => "clipboard:menu.revealInExplorer",
             Self::ToggleFavorite if item.is_favorite => "clipboard:menu.unfavorite",
             Self::ToggleFavorite => "clipboard:menu.favorite",

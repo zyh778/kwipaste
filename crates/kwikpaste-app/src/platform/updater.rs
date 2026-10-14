@@ -672,7 +672,7 @@ fn open_new_update_window(status: UpdateStatus, cx: &mut App) {
 }
 
 fn raise_update_window(handle: gpui::AnyWindowHandle, cx: &mut App) {
-    #[cfg(target_os = "windows")]
+    #[cfg(any(target_os = "windows", target_os = "linux"))]
     {
         if let Err(err) = handle.update(cx, |_, window, _| {
             raise_update_window_in_place(window);
@@ -1174,6 +1174,12 @@ struct UiBus {
 }
 
 impl Global for UiBus {}
+
+/// Linux 本地构建仍可展示更新状态窗口，但不执行官方更新交接。
+#[cfg(target_os = "linux")]
+fn raise_update_window_in_place(window: &Window) {
+    super::raise_linux_window(window);
+}
 
 #[cfg(test)]
 mod tests {

@@ -84,7 +84,7 @@ fn render_thread_alive() -> bool {
     gpui_windows::vsync_thread_alive() && !SIMULATED_DEAD.load(Ordering::SeqCst)
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 fn render_thread_alive() -> bool {
     !SIMULATED_DEAD.load(Ordering::SeqCst)
 }
@@ -132,6 +132,11 @@ pub fn simulate_display_sleep() {
 /// 自测（`--selftest-device-lost=<n>`）：模拟一次 GPU 设备丢失，前 `n` 次重建全局设备失败；
 /// 恢复（或判定恢复不了）后写探针事件 `device_recovered` / `device_failing`。
 pub fn simulate_device_lost(failed_attempts: u32, cx: &mut App) {
+    #[cfg(target_os = "linux")]
+    {
+        let _ = (failed_attempts, cx);
+        log::warn!("Linux device-loss injection is not supported");
+    }
     #[cfg(target_os = "windows")]
     {
         let before = gpui_windows::device_loss_status();
@@ -190,3 +195,13 @@ fn restart_now(cx: &mut App, restart: &Restart) {
     }
     cx.quit();
 }
+
+/// TODO: 接入 wgpu 的设备恢复状态；不套用 Metal/D3D 的专用状态位。
+#[cfg(target_os = "linux")]
+fn device_recovery_failing() -> bool {
+    false
+}
+
+/// TODO: wgpu 后端尚未暴露设备重建触发接口。
+#[cfg(target_os = "linux")]
+fn recheck_device() {}

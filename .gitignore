@@ -34,3 +34,4 @@ release-local
 # 原生 2.0 workspace 的构建产物
 /target/
 /extensions/*/target/
+/third_party/*/target/

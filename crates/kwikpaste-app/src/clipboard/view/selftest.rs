@@ -34,7 +34,7 @@ use crate::{
             actions::DeletePolicy,
             controller::ListUpdate,
             empty_state::empty_text,
-            filter::{ListFilter, Range},
+            filter::{Category, ListFilter, Range},
             item::{ItemKind, ListItem},
             menu::{MenuAction, menu_groups},
         },
@@ -453,7 +453,7 @@ impl Driver {
             cx,
             "right selects text",
             ListFilter {
-                category: Some(ItemKind::Text),
+                category: Some(Category::Text),
                 ..ListFilter::default()
             },
         )
@@ -465,7 +465,7 @@ impl Driver {
             cx,
             "left wraps to files",
             ListFilter {
-                category: Some(ItemKind::Files),
+                category: Some(Category::Files),
                 ..ListFilter::default()
             },
         )

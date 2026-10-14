@@ -208,6 +208,16 @@ fn machine_fingerprint() -> Option<String> {
     Some(to_hex(&id))
 }
 
+#[cfg(target_os = "linux")]
+fn machine_fingerprint() -> Option<String> {
+    std::fs::read_to_string("/etc/machine-id")
+        .or_else(|_| std::fs::read_to_string("/var/lib/dbus/machine-id"))
+        .map_err(|err| log::warn!("read machine-id failed: {err}"))
+        .ok()
+        .map(|id| id.trim().to_owned())
+        .filter(|id| !id.is_empty())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

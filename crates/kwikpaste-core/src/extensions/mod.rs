@@ -29,6 +29,30 @@ pub(crate) struct ExtensionStore {
     operations: tokio::sync::Mutex<()>,
 }
 
+/// 扩展功能（图片文字识别、微信输入法同步）暂时整体下线：不解析、不安装、不启动，
+/// 偏好设置里也不出现。恢复时改回 `true` 即可，本地 installed.json 与已下载的版本目录都未动。
+/// 单测不走这个开关：它们验证的是装/卸/换版的机制，与是否上线无关。
+pub const AVAILABLE: bool = false;
+
+/// 跨 crate 单测的旁路：`cfg!(test)` 只在 kwikpaste-core 自身测试里为真，
+/// 更新器等下游 crate 的测试链接的是普通依赖，需要显式打开才能验证装/卸/换版机制。
+#[doc(hidden)]
+pub static FORCE_AVAILABLE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+fn offline() -> bool {
+    !AVAILABLE
+        && !cfg!(test)
+        && !FORCE_AVAILABLE.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+/// 扩展下线期间拒绝一切安装/卸载/开关请求（单测除外，见 [`offline`]）。
+fn unavailable(id: &str) -> anyhow::Result<()> {
+    if offline() {
+        anyhow::bail!("extensions are currently unavailable: {id}");
+    }
+    Ok(())
+}
+
 fn known(id: &str) -> anyhow::Result<u32> {
     match id {
         "ocr" => Ok(OCR_PROTOCOL),
@@ -47,7 +71,7 @@ pub fn executable_name(id: &str) -> anyhow::Result<String> {
     known(id)?;
     #[cfg(target_os = "windows")]
     let suffix = ".exe";
-    #[cfg(target_os = "macos")]
+    #[cfg(not(target_os = "windows"))]
     let suffix = "";
     Ok(format!("kwikpaste-ext-{id}{suffix}"))
 }
@@ -93,13 +117,19 @@ impl ExtensionStore {
     }
 
     pub(crate) fn enabled(&self, id: &str) -> bool {
-        let installed = self.installed.read().unwrap_or_else(|p| p.into_inner());
-        installed
-            .get(id)
-            .is_some_and(|entry| entry.enabled && Some(entry.protocol) == known(id).ok())
+        !offline()
+            && self
+                .installed
+                .read()
+                .unwrap_or_else(|p| p.into_inner())
+                .get(id)
+                .is_some_and(|entry| entry.enabled && Some(entry.protocol) == known(id).ok())
     }
 
     pub(crate) fn resolve(&self, id: &str) -> Option<PathBuf> {
+        if offline() {
+            return None;
+        }
         let protocol = known(id).ok()?;
         let installed = self.installed.read().unwrap_or_else(|p| p.into_inner());
         let entry = installed.get(id)?;
@@ -213,6 +243,7 @@ impl Core {
         protocol: u32,
         staged_path: &Path,
     ) -> Result<()> {
+        unavailable(id)?;
         known(id)?;
         validate_version(version)?;
         let core = self.clone();
@@ -255,6 +286,7 @@ impl Core {
 
     /// 先停止子进程，再删除所有版本目录和扩展自有状态，但不删除数据库中的识别文本。
     pub async fn uninstall_extension(&self, id: &str) -> Result<()> {
+        unavailable(id)?;
         known(id)?;
         let core = self.clone();
         let id = id.to_owned();
@@ -293,6 +325,7 @@ impl Core {
 
     /// 立即生效；禁用会停止任务，启用会唤醒持久化的 OCR 队列。
     pub async fn set_extension_enabled(&self, id: &str, enabled: bool) -> Result<()> {
+        unavailable(id)?;
         known(id)?;
         let core = self.clone();
         let id = id.to_owned();
@@ -336,6 +369,7 @@ impl Core {
         version: &str,
         protocol: u32,
     ) -> Result<()> {
+        unavailable(id)?;
         known(id)?;
         validate_version(version)?;
         let exe = std::env::current_exe().map_err(anyhow::Error::from)?;

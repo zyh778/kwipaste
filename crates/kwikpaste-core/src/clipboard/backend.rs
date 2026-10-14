@@ -114,6 +114,9 @@ pub(super) const PNG_FORMAT: &str = "public.png";
 #[cfg(target_os = "windows")]
 pub(super) const PNG_FORMAT: &str = "PNG";
 
+#[cfg(target_os = "linux")]
+pub(super) const PNG_FORMAT: &str = "image/png";
+
 /// macOS 剪贴板里 TIFF 的格式标识符（截图与多数应用复制的图片）。
 #[cfg(target_os = "macos")]
 const TIFF_FORMAT: &str = "public.tiff";
@@ -137,12 +140,31 @@ fn encode_image(image: RustImageData) -> Result<DecodedImage> {
 
 /// 本机系统剪贴板。`!Send`，在使用它的线程上创建。
 pub struct SystemClipboard {
+    #[cfg(not(target_os = "linux"))]
     ctx: ClipboardContext,
+    #[cfg(target_os = "linux")]
+    ctx: Arc<ClipboardContext>,
+}
+
+// clipboard-rs 的 X11 上下文会启动常驻 selection 服务线程，不能每次写回都新建连接。
+#[cfg(target_os = "linux")]
+thread_local! {
+    static LINUX_CLIPBOARD: std::cell::RefCell<Option<Arc<ClipboardContext>>> = const { std::cell::RefCell::new(None) };
 }
 
 impl SystemClipboard {
     pub fn new() -> Result<Self> {
+        #[cfg(not(target_os = "linux"))]
         let ctx = ClipboardContext::new().map_err(clip_err)?;
+        #[cfg(target_os = "linux")]
+        let ctx = LINUX_CLIPBOARD.with(|slot| -> Result<Arc<ClipboardContext>> {
+            if let Some(ctx) = slot.borrow().as_ref() {
+                return Ok(ctx.clone());
+            }
+            let ctx = Arc::new(ClipboardContext::new().map_err(clip_err)?);
+            *slot.borrow_mut() = Some(ctx.clone());
+            Ok(ctx)
+        })?;
         Ok(Self { ctx })
     }
 }
@@ -163,7 +185,7 @@ impl ClipboardBackend for SystemClipboard {
         self.ctx.get_text().map_err(clip_err)
     }
 
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     fn get_html(&self) -> Result<String> {
         self.ctx.get_html().map_err(clip_err)
     }
@@ -228,6 +250,17 @@ impl ClipboardBackend for SystemClipboard {
         encode_image(image)
     }
 
+    /// Linux 原始 PNG 同样先验证尺寸，避免在解码前分配无界图片缓冲。
+    #[cfg(target_os = "linux")]
+    fn get_image_as_png(&self) -> Result<DecodedImage> {
+        let bytes = self.ctx.get_buffer(PNG_FORMAT).map_err(clip_err)?;
+        let (width, height) = crate::imaging::from_bytes(&bytes)
+            .and_then(image::ImageReader::into_dimensions)
+            .map_err(clip_err)?;
+        crate::imaging::check_rgba_size(width, height).map_err(clip_err)?;
+        encode_image(RustImageData::from_bytes(&bytes).map_err(clip_err)?)
+    }
+
     fn set_text(&self, text: String) -> Result<()> {
         self.ctx.set_text(text).map_err(clip_err)
     }
@@ -248,7 +281,7 @@ impl ClipboardBackend for SystemClipboard {
         self.ctx.set_files(files).map_err(clip_err)
     }
 
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     fn set_png(&self, png: Vec<u8>) -> Result<()> {
         self.ctx
             .set(vec![ClipboardContent::Other(PNG_FORMAT.to_owned(), png)])
