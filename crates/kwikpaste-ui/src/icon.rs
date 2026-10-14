@@ -47,6 +47,8 @@ pub enum IconName {
     GroupFiles,
     /// 1.x `i-lets-icons:img-box`：分组栏“图片”。
     GroupImage,
+    /// 1.x `i-lets-icons:link`：分组栏“链接”。
+    GroupLink,
     /// 1.x `i-lets-icons:file-dock`：分组栏“文本”。
     GroupText,
     Heart,
@@ -118,6 +120,7 @@ impl IconName {
             Self::GroupFavorite => "lets-icons-star.svg",
             Self::GroupFiles => "lets-icons-folder-file-alt.svg",
             Self::GroupImage => "lets-icons-img-box.svg",
+            Self::GroupLink => "lets-icons-link.svg",
             Self::GroupText => "lets-icons-file-dock.svg",
             Self::ImageOff => "lucide-image-off.svg",
             Self::KeyRound => "lucide-key-round.svg",
@@ -251,6 +254,7 @@ mod tests {
             IconName::GroupFavorite,
             IconName::GroupFiles,
             IconName::GroupImage,
+            IconName::GroupLink,
             IconName::GroupText,
             IconName::Keyboard,
             IconName::ListChecks,

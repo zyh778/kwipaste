@@ -845,7 +845,10 @@ mod tests {
 
     #[test]
     fn filters_and_mutations_follow_core_semantics() {
-        use crate::clipboard::model::{filter::Range, item::ItemKind};
+        use crate::clipboard::model::{
+            filter::{Category, Range},
+            item::ItemKind,
+        };
 
         let store = FixtureStore::from_page_json(SAMPLE, Path::new("/tmp"))
             .expect("parses")
@@ -884,7 +887,7 @@ mod tests {
         assert_eq!(grouped.total, 2);
 
         let images = list(ListFilter {
-            category: Some(ItemKind::Image),
+            category: Some(Category::Image),
             ..ListFilter::default()
         });
         assert!(images.items.iter().all(|item| item.kind == ItemKind::Image));

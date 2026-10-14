@@ -18,10 +18,7 @@ use kwikpaste_ui::{
 
 use crate::{
     clipboard::{
-        model::{
-            filter::{CATEGORIES, ListFilter, Range},
-            item::ItemKind,
-        },
+        model::filter::{CATEGORIES, Category, ListFilter, Range},
         source::Group,
     },
     i18n::t,
@@ -32,8 +29,8 @@ use crate::{
 const BUTTON: f32 = 24.;
 const GAP: f32 = 4.;
 /// 第二条分隔线右边缘到分组栏左边缘的距离（左内边距 + 范围 + 分类 + 两条分隔线，见 1.x
-/// `computeCustomGroupCapacity`），再加分隔线外边距和一个间距。
-const CUSTOM_START: f32 = 170. + 4. + GAP;
+/// `computeCustomGroupCapacity`），再加分隔线外边距和一个间距。分类比 1.x 多一个「链接」按钮。
+const CUSTOM_START: f32 = 170. + BUTTON + GAP + 4. + GAP;
 /// 末尾留给“更多”或“新增”按钮的位置。
 const ACTION_SLOT: f32 = GAP + BUTTON;
 
@@ -41,7 +38,7 @@ const ACTION_SLOT: f32 = GAP + BUTTON;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum GroupBarEvent {
     SelectRange(Range),
-    ToggleCategory(ItemKind),
+    ToggleCategory(Category),
     ToggleGroup(Arc<str>),
     EditGroup(Group),
     HideGroup(Group),
@@ -53,7 +50,7 @@ pub enum GroupBarEvent {
 pub struct GroupBar {
     groups: Vec<Group>,
     range: Range,
-    category: Option<ItemKind>,
+    category: Option<Category>,
     group_id: Option<Arc<str>>,
     hints: bool,
 }
@@ -143,19 +140,24 @@ impl GroupBar {
             .into_any_element()
     }
 
-    fn category_button(&self, kind: ItemKind, cx: &mut Context<Self>) -> AnyElement {
-        let (id, icon, label) = match kind {
-            ItemKind::Text => (
+    fn category_button(&self, category: Category, cx: &mut Context<Self>) -> AnyElement {
+        let (id, icon, label) = match category {
+            Category::Text => (
                 "group-text",
                 IconName::GroupText,
                 t("clipboard:groups.text"),
             ),
-            ItemKind::Image => (
+            Category::Link => (
+                "group-link",
+                IconName::GroupLink,
+                t("clipboard:groups.link"),
+            ),
+            Category::Image => (
                 "group-image",
                 IconName::GroupImage,
                 t("clipboard:groups.image"),
             ),
-            ItemKind::Files => (
+            Category::Files => (
                 "group-files",
                 IconName::GroupFiles,
                 t("clipboard:groups.files"),
@@ -168,11 +170,13 @@ impl GroupBar {
             Glyph::Icon(icon),
             label,
             None,
-            look(self.category == Some(kind)),
+            look(self.category == Some(category)),
         )
-        .on_click(cx.listener(move |_, _, _, cx| cx.emit(GroupBarEvent::ToggleCategory(kind))))
+        .on_click(
+            cx.listener(move |_, _, _, cx| cx.emit(GroupBarEvent::ToggleCategory(category))),
+        )
         .role(Role::Tab)
-        .aria_selected(self.category == Some(kind))
+        .aria_selected(self.category == Some(category))
         .into_any_element()
     }
 
@@ -345,11 +349,12 @@ impl Render for GroupBar {
             Range::All => t("clipboard:groups.all"),
             Range::Favorite => t("clipboard:groups.favorite"),
         });
-        if let Some(kind) = self.category {
-            chips += chip_extra(&t(match kind {
-                ItemKind::Text => "clipboard:groups.text",
-                ItemKind::Image => "clipboard:groups.image",
-                ItemKind::Files => "clipboard:groups.files",
+        if let Some(category) = self.category {
+            chips += chip_extra(&t(match category {
+                Category::Text => "clipboard:groups.text",
+                Category::Link => "clipboard:groups.link",
+                Category::Image => "clipboard:groups.image",
+                Category::Files => "clipboard:groups.files",
             }));
         }
         // 选中的自定义分组先按它自己的胶囊预留；这样仍放不下它时，它收进“更多”，换成“更多”的胶囊。
@@ -371,7 +376,7 @@ impl Render for GroupBar {
         let overflow: Vec<Group> = visible.iter().skip(inline).cloned().collect();
 
         let ranges = [Range::All, Range::Favorite].map(|range| self.range_button(range, cx));
-        let categories = CATEGORIES.map(|kind| self.category_button(kind, cx));
+        let categories = CATEGORIES.map(|category| self.category_button(category, cx));
         let customs: Vec<AnyElement> = visible
             .iter()
             .take(inline)
@@ -415,12 +420,12 @@ impl Render for GroupBar {
 mod tests {
     use super::*;
 
-    /// 360 px 宽的面板放 5 个自定义分组（1.x 同宽时的实测）。
+    /// 360 px 宽的面板放 4 个自定义分组（分类比 1.x 多一个「链接」按钮，同宽少放一个）。
     #[test]
     fn the_default_panel_fits_five_custom_groups() {
-        assert_eq!(capacity(360.), 5);
+        assert_eq!(capacity(360.), 4);
         assert_eq!(capacity(200.), 0);
-        assert_eq!(capacity(500.), 10);
+        assert_eq!(capacity(500.), 9);
     }
 
     /// 胶囊多占的宽度：两个全角字 24、两个半角字 14，名称再长也只算到上限。

@@ -1,6 +1,6 @@
 //! 空列表的提示文案（1.x `getEmptyDescription`）：按搜索词、范围、分类、自定义分组组合出 16 种。
 
-use super::{filter::ListFilter, item::ItemKind};
+use super::filter::{Category, ListFilter};
 
 /// 空态文案的 key 与要插进去的参数。分类名、分组名由视图翻译后填入。
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -9,7 +9,7 @@ pub struct EmptyText {
     /// `{{keyword}}`：搜索时才有。
     pub searching: bool,
     /// `{{category}}`：选了分类时才有。
-    pub category: Option<ItemKind>,
+    pub category: Option<Category>,
     /// `{{group}}`：选了自定义分组时才有。
     pub group: bool,
 }
@@ -49,11 +49,12 @@ pub fn empty_text(filter: &ListFilter) -> EmptyText {
 }
 
 /// 分类名在空态文案里的写法（中文“文本”，英文小写 “text”）。
-pub fn category_key(kind: ItemKind) -> &'static str {
-    match kind {
-        ItemKind::Text => "clipboard:empty.categories.text",
-        ItemKind::Image => "clipboard:empty.categories.image",
-        ItemKind::Files => "clipboard:empty.categories.files",
+pub fn category_key(category: Category) -> &'static str {
+    match category {
+        Category::Text => "clipboard:empty.categories.text",
+        Category::Link => "clipboard:empty.categories.link",
+        Category::Image => "clipboard:empty.categories.image",
+        Category::Files => "clipboard:empty.categories.files",
     }
 }
 
@@ -71,7 +72,7 @@ mod tests {
         for searching in [false, true] {
             for group in [false, true] {
                 for range in [Range::All, Range::Favorite] {
-                    for category in [None, Some(ItemKind::Image)] {
+                    for category in [None, Some(Category::Image)] {
                         let filter = ListFilter {
                             range,
                             category,

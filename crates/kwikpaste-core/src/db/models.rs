@@ -156,6 +156,8 @@ pub struct ClipboardItemQuery {
 pub enum ClipboardGroupFilter {
     All,
     Text,
+    /// 链接：文本记录里识别为 URL 的子集（`sub_kind = url`）。
+    Link,
     Image,
     Files,
     Favorite,

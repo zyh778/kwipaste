@@ -5,7 +5,7 @@ use sqlx::{QueryBuilder, Sqlite, SqlitePool};
 
 use crate::db::models::{
     ClipboardGroupFilter, ClipboardItem, ClipboardItemQuery, ClipboardItemRef, ClipboardItemSort,
-    ClipboardKind,
+    ClipboardKind, ClipboardSubKind,
 };
 use crate::error::Result;
 
@@ -779,6 +779,12 @@ fn push_filter_clauses(
     let (effective_kind, effective_favorite) = match q.group {
         Some(ClipboardGroupFilter::All) => (None, q.favorite),
         Some(ClipboardGroupFilter::Text) => (Some(ClipboardKind::Text), q.favorite),
+        // 链接是文本记录的子集：sub_kind = url。
+        Some(ClipboardGroupFilter::Link) => {
+            qb.push(" AND clipboard_items.sub_kind = ")
+                .push_bind(ClipboardSubKind::Url);
+            (Some(ClipboardKind::Text), q.favorite)
+        }
         Some(ClipboardGroupFilter::Image) => {
             push_image_group_clause(qb);
             (None, q.favorite)
